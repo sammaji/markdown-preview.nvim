@@ -53,7 +53,7 @@ fetch() {
 }
 
 get_latest_release() {
-  fetch "https://api.github.com/repos/iamcco/markdown-preview.nvim/releases/latest" |
+  fetch "https://api.github.com/repos/sammaji/markdown-preview.nvim/releases/latest" |
     grep '"tag_name":' |
     sed -E 's/.*"([^"]+)".*/\1/'
 }
@@ -68,7 +68,7 @@ fi
 download() {
   mkdir -p bin
   cd bin
-  url="https://github.com/iamcco/markdown-preview.nvim/releases/download/$tag/${1}"
+  url="https://github.com/sammaji/markdown-preview.nvim/releases/download/$tag/${1}"
   info "Downloading binary from ${url}"
   if fetch "${url}" | tar xzfv -; then
     chmod a+x "${1%.tar.gz}"
