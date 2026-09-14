@@ -31,19 +31,16 @@ function! s:start_vim_server(cmd) abort
   let l:job = job_start(a:cmd, options)
   let l:status = job_status(l:job)
   if l:status !=# 'run'
-    echohl Error | echon 'Failed to start vim-node-rpc service' | echohl None
+    echohl Error | echon '[markdown-preview.nvim]: Failed to start server' | echohl None
     return
   endif
   let s:mkdp_channel_id = l:job
 endfunction
 
 function! mkdp#rpc#start_server() abort
-  let l:mkdp_server_script = s:mkdp_root_dir . '/app/bin/markdown-preview-' . mkdp#util#get_platform()
-  if executable(l:mkdp_server_script)
-    let l:cmd = [l:mkdp_server_script, '--path', s:mkdp_root_dir . '/app/server.js']
-  elseif executable('node')
-    let l:mkdp_server_script = s:mkdp_root_dir . '/app/index.js'
-    let l:cmd = ['node', l:mkdp_server_script, '--path', s:mkdp_root_dir . '/app/server.js']
+  let l:mkdp_server = mkdp#util#server_binary()
+  if l:mkdp_server !=# ''
+    let l:cmd = [l:mkdp_server]
   endif
   if exists('l:cmd')
     if s:is_vim
@@ -58,7 +55,7 @@ function! mkdp#rpc#start_server() abort
       let s:mkdp_channel_id = jobstart(l:cmd, l:nvim_optons)
     endif
   else
-    call mkdp#util#echo_messages('Error', 'Pre build and node is not found')
+    call mkdp#util#echo_messages('Error', '[markdown-preview.nvim]: server binary not found, run :call mkdp#util#install() or `cargo build --release` in the plugin directory')
   endif
 endfunction
 

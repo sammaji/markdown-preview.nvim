@@ -1,6 +1,6 @@
 let s:mkdp_root_dir = expand('<sfile>:h:h:h')
 let s:pre_build = s:mkdp_root_dir . '/app/bin/markdown-preview-'
-let s:package_file = s:mkdp_root_dir . '/package.json'
+let s:exe = has('win32') || has('win64') ? '.exe' : ''
 
 " echo message
 function! mkdp#util#echo_messages(hl, msgs)
@@ -138,14 +138,59 @@ function! s:trim(str) abort
   return substitute(a:str, '\v^(\s|\\n)*|(\s|\\n)*$', '', 'g')
 endfunction
 
+" version of the plugin, read from Cargo.toml
+function! mkdp#util#version() abort
+  for l:line in readfile(s:mkdp_root_dir . '/Cargo.toml')
+    let l:match = matchlist(l:line, '\v^version\s*\=\s*"([^"]+)"')
+    if !empty(l:match)
+      return l:match[1]
+    endif
+  endfor
+  return ''
+endfunction
+
+" path of the server binary: a local `cargo build --release` takes precedence
+" over the pre built binary downloaded by mkdp#util#install()
+function! mkdp#util#server_binary() abort
+  let l:local_build = s:mkdp_root_dir . '/target/release/markdown-preview' . s:exe
+  if executable(l:local_build)
+    return l:local_build
+  endif
+  let l:pre_build = s:pre_build . mkdp#util#get_platform() . s:exe
+  if executable(l:pre_build)
+    return l:pre_build
+  endif
+  return ''
+endfunction
+
+" everything the preview page needs to render a buffer, in one round trip
+function! mkdp#util#preview_data(bufnr) abort
+  if !bufexists(a:bufnr)
+    return v:null
+  endif
+  return {
+        \ 'options': get(g:, 'mkdp_preview_options', {}),
+        \ 'isActive': bufnr('%') ==# a:bufnr,
+        \ 'winline': winline(),
+        \ 'winheight': winheight(0),
+        \ 'cursor': getpos('.'),
+        \ 'pageTitle': get(g:, 'mkdp_page_title', ''),
+        \ 'theme': get(g:, 'mkdp_theme', ''),
+        \ 'name': fnamemodify(bufname(a:bufnr), ':p'),
+        \ 'content': getbufline(a:bufnr, 1, '$'),
+        \ }
+endfunction
+
 function! mkdp#util#install(...)
-  let l:version = mkdp#util#pre_build_version()
-  let l:info = json_decode(join(readfile(s:mkdp_root_dir . '/package.json'), ''))
-  if s:trim(l:version) ==# s:trim(l:info.version)
+  let l:version = mkdp#util#version()
+  if s:trim(mkdp#util#pre_build_version()) ==# l:version
     return
   endif
-  let obj = json_decode(join(readfile(s:package_file)))
-  let cmd = (mkdp#util#get_platform() ==# 'win' ? 'install.cmd' : './install.sh') . ' v'.obj['version']
+  " prefer a local cargo build (see mkdp#util#server_binary) over downloading
+  if executable(s:mkdp_root_dir . '/target/release/markdown-preview' . s:exe)
+    return
+  endif
+  let cmd = (mkdp#util#get_platform() ==# 'win' ? 'install.cmd' : './install.sh') . ' v' . l:version
   if get(a:, '1', v:false) ==# v:true
     execute 'lcd ' . s:mkdp_root_dir . '/app'
     execute '!' . cmd
@@ -168,12 +213,9 @@ function! mkdp#util#install_sync(...)
 endfunction
 
 function! mkdp#util#pre_build_version() abort
-  let l:pre_build = s:pre_build . mkdp#util#get_platform()
-  if has('win32') || has('win64')
-    let l:pre_build .= '.exe'
-  endif
+  let l:pre_build = s:pre_build . mkdp#util#get_platform() . s:exe
   if filereadable(l:pre_build)
-    let l:info = system(l:pre_build . ' --version')
+    let l:info = system(shellescape(l:pre_build) . ' --version')
     if l:info ==# ''
       call mkdp#util#echo_messages('Type', "[markdown-preview.nvim]: Can not execute pre build binary bundle to get version, will download latest pre build binary bundle")
       return ''

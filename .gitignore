@@ -76,3 +76,7 @@ typings/
 app/.next/
 app/bin/
 app/out/
+app/next-env.d.ts
+
+### Rust ###
+/target/

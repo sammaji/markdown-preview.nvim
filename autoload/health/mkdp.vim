@@ -1,18 +1,13 @@
-let s:mkdp_root_dir = expand('<sfile>:h:h:h')
-
 function! health#mkdp#check() abort
   lua vim.health.info("Platform: " .. vim.fn['mkdp#util#get_platform']())
   lua vim.health.info('Nvim Version: ' .. string.gsub(vim.fn.system('nvim --version'), '^%s*(.-)%s*$', '%1'))
-  let l:mkdp_server_script = s:mkdp_root_dir .. '/app/bin/markdown-preview-' .. mkdp#util#get_platform()
-  if executable(l:mkdp_server_script)
-    lua vim.health.info('Pre build: ' .. vim.api.nvim_eval('l:mkdp_server_script'))
-    lua vim.health.info('Pre build version: ' .. vim.fn['mkdp#util#pre_build_version']())
-    lua vim.health.ok('Using pre build')
-  elseif executable('node')
-    lua vim.health.info('Node version: ' .. string.gsub(vim.fn.system('node --version'), '^%s*(.-)%s*$', '%1'))
-    let l:mkdp_server_script = s:mkdp_root_dir .. '/app/server.js'
-    lua vim.health.info('Script: ' .. vim.api.nvim_eval('l:mkdp_server_script'))
-    lua vim.health.info('Script exists: ' .. vim.fn.filereadable(vim.api.nvim_eval('l:mkdp_server_script')))
-    lua vim.health.ok('Using node')
+  lua vim.health.info('Plugin version: ' .. vim.fn['mkdp#util#version']())
+  let l:mkdp_server = mkdp#util#server_binary()
+  if l:mkdp_server !=# ''
+    lua vim.health.info('Server binary: ' .. vim.fn['mkdp#util#server_binary']())
+    lua vim.health.info('Server version: ' .. string.gsub(vim.fn.system({vim.fn['mkdp#util#server_binary'](), '--version'}), '^%s*(.-)%s*$', '%1'))
+    lua vim.health.ok('Server binary found')
+  else
+    lua vim.health.error('Server binary not found', { 'Run :call mkdp#util#install() to download a pre built binary', 'or run `cargo build --release` in the plugin directory' })
   endif
 endfunction
