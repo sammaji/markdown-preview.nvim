@@ -1,0 +1,30 @@
+[package]
+name = "markdown-preview"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.86"
+resolver = "3"
+description = "Markdown preview server for (neo)vim"
+license = "MIT"
+repository = "https://github.com/sammaji/markdown-preview.nvim"
+publish = false
+
+[[bin]]
+name = "markdown-preview"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "ws"] }
+include_dir = "0.7"
+mime_guess = "2"
+percent-encoding = "2"
+rmpv = "1"
+serde_json = "1"
+tokio = { version = "1", features = ["fs", "macros", "net", "rt", "sync", "time"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "s"
+strip = true
+panic = "abort"
