@@ -1,0 +1,114 @@
+:root {
+  color-scheme: light;
+  --foreground-color: #24292e;
+  --muted-color: #6a737d;
+  --background-color: #f6f8fa;
+  --border-color: #d1d5da;
+  --secondary-background-color: #f6f8fa;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --foreground-color: #c9d1d9;
+  --muted-color: #8b949e;
+  --background-color: #0d1117;
+  --border-color: #30363d;
+  --secondary-background-color: #181a1b;
+}
+
+html,
+body,
+main {
+  min-height: 100vh;
+  margin: 0;
+}
+
+body {
+  background-color: var(--secondary-background-color);
+  font-family: "Helvetica Neue", Helvetica, "Segoe UI", Arial, freesans, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+#page-ctn {
+  margin: 0 auto;
+  max-width: 900px;
+  color: var(--foreground-color);
+}
+
+#page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-bottom: 0;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  line-height: 24px;
+}
+
+#page-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  padding-right: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+#page-header svg {
+  flex: none;
+  fill: currentColor;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status {
+  color: var(--muted-color);
+  font-size: 12px;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted-color);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+#page-header:hover .theme-toggle,
+.theme-toggle:focus-visible {
+  opacity: 1;
+}
+
+.theme-toggle:hover {
+  color: var(--foreground-color);
+  border-color: var(--border-color);
+}
+
+.diagram-error {
+  color: #cb2431;
+  white-space: pre-wrap;
+}
+
+.notice {
+  padding: 32px;
+  color: var(--muted-color);
+  text-align: center;
+}
