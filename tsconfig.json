@@ -2,6 +2,7 @@
   "compileOnSave": true,
   "compilerOptions": {
     "resolveJsonModule": true,
+    "types": ["node"],
     "composite": true,
     "target": "es2015",
     "module": "commonjs",

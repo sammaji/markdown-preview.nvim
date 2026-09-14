@@ -9,7 +9,7 @@ git tag -f "$tag" -m "Release $tag"
 git push --tags
 
 GH_API="https://api.github.com"
-GH_REPO="$GH_API/repos/iamcco/markdown-preview.nvim"
+GH_REPO="$GH_API/repos/sammaji/markdown-preview.nvim"
 GH_TAGS="$GH_REPO/releases/tags/$tag"
 AUTH="Authorization: token $GITHUB_API_TOKEN"
 
@@ -41,7 +41,7 @@ eval $(echo "$response" | grep -m 1 "id.:" | grep -w id | tr : = | tr -cd '[[:al
 # Upload asset
 for filename in "${files[@]}"
 do
-  GH_ASSET="https://uploads.github.com/repos/iamcco/markdown-preview.nvim/releases/$id/assets?name=$filename"
+  GH_ASSET="https://uploads.github.com/repos/sammaji/markdown-preview.nvim/releases/$id/assets?name=$filename"
   echo "Uploading $filename"
   curl -X POST -H "Authorization: token $GITHUB_API_TOKEN" \
     -H "Content-Type: application/octet-stream" \

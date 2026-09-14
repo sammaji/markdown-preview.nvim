@@ -16,6 +16,8 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+tsconfig.tsbuildinfo
+app/tsconfig.tsbuildinfo
 
 # Runtime data
 pids
@@ -73,3 +75,4 @@ typings/
 
 app/.next/
 app/bin/
+app/out/
