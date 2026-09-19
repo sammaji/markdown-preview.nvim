@@ -25,9 +25,15 @@ feature; open it and run `:MarkdownPreview`.
 ## Installation
 
 Requires Neovim or Vim 8.1+. The plugin downloads a pre-built server binary for
-macOS (x64, arm64), Linux (x64) and Windows (x64). On other platforms, or to
-build from source, use `cargo build --release` instead (needs
-[Rust](https://rustup.rs) 1.86+ and Node.js 20.9+ with pnpm or npx).
+macOS (x64, arm64), Linux (x64) and Windows (x64).
+
+With lazy.nvim there is nothing to configure: the repository ships a
+`build.lua`, which lazy.nvim runs on install and on update, so the binary is in
+place before the first preview and is refreshed whenever the plugin is updated.
+Other plugin managers have no equivalent, so they need the build hook shown
+below. Either way, if the binary is missing or out of date, `:MarkdownPreview`
+downloads it and then opens the preview, so nothing has to be installed by
+hand.
 
 ### [lazy.nvim](https://github.com/folke/lazy.nvim)
 
@@ -36,9 +42,6 @@ build from source, use `cargo build --release` instead (needs
   "sammaji/markdown-preview.nvim",
   cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
   ft = { "markdown" },
-  build = function() vim.fn["mkdp#util#install"]() end,
-  -- or build from source:
-  -- build = "cargo build --release",
 }
 ```
 
@@ -49,23 +52,38 @@ use({
   "sammaji/markdown-preview.nvim",
   cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
   ft = { "markdown" },
-  run = function() vim.fn["mkdp#util#install"]() end,
-  -- or build from source:
-  -- run = "cargo build --release",
+  run = function() vim.fn["mkdp#util#install_sync"]() end,
 })
 ```
 
 ### [vim-plug](https://github.com/junegunn/vim-plug)
 
 ```vim
-Plug 'sammaji/markdown-preview.nvim', { 'do': { -> mkdp#util#install() }, 'for': ['markdown', 'vim-plug'] }
-" or build from source:
-" Plug 'sammaji/markdown-preview.nvim', { 'do': 'cargo build --release' }
+Plug 'sammaji/markdown-preview.nvim', { 'do': { -> mkdp#util#install_sync() }, 'for': ['markdown', 'vim-plug'] }
 ```
 
 Adding `vim-plug` to `for` loads the plugin in vim-plug's window, so the install
 hook can run; see
 [iamcco/markdown-preview.nvim#50](https://github.com/iamcco/markdown-preview.nvim/issues/50).
+
+In a build hook, use `mkdp#util#install_sync()` rather than
+`mkdp#util#install()`: it waits for the download to finish, so the plugin
+manager reports the real result instead of returning while the download is
+still running.
+
+### Building from source
+
+On a platform without a pre-built binary, or to run your own build, build the
+server once in the plugin directory:
+
+```sh
+cargo build --release
+```
+
+This needs [Rust](https://rustup.rs) 1.86+ and Node.js 20.9+ with pnpm or npx.
+A `target/release` build is always preferred over a downloaded binary and never
+triggers a download, so it can replace the build hook entirely, e.g.
+`build = "cargo build --release"` for lazy.nvim.
 
 Run `:checkhealth mkdp` to check which server binary is used.
 

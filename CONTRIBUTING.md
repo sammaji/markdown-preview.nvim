@@ -128,5 +128,7 @@ For maintainers:
    tag, and the release workflow builds the binaries and publishes the GitHub
    release.
 
-`mkdp#util#install()` downloads the release matching the plugin's `Cargo.toml`
-version, so the tag must exist before users update to the new version.
+The plugin installs the release matching its `Cargo.toml` version, so the tag
+must exist before users update: lazy.nvim runs `build.lua` on update, other
+plugin managers run `mkdp#util#install_sync()` from their build hook, and
+`:MarkdownPreview` downloads the binary when it does not match the plugin.

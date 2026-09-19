@@ -7,8 +7,8 @@ $file = "markdown-preview-win.zip"
 
 $releases = "https://api.github.com/repos/$repo/releases"
 
-Write-Host Determining latest release
-if ($args[0]) { $tag = $args[0] } else { $tag = (Invoke-WebRequest $releases | ConvertFrom-Json)[0].tag_name }
+Write-Host Determining release to install
+if ($args[0]) { $tag = $args[0] } else { $tag = $null; $cargo = "..\Cargo.toml"; if (Test-Path $cargo) { $m = Select-String -Path $cargo -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1; if ($m) { $tag = "v" + $m.Matches.Groups[1].Value } }; if (-not $tag) { $tag = (Invoke-WebRequest $releases | ConvertFrom-Json)[0].tag_name } }
 
 $download = "https://github.com/$repo/releases/download/$tag/$file"
 $name = $file.Split(".")[0]
