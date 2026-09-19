@@ -10,7 +10,26 @@ permissions:
   contents: write
 
 jobs:
+  # The plugin downloads the release matching its Cargo.toml version, so a tag
+  # that disagrees publishes binaries that no installation will ever ask for.
+  # Fail before spending the build matrix on them.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: tag matches Cargo.toml
+        run: |
+          version=$(sed -n 's/^version *= *"\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          case "$GITHUB_REF_NAME" in
+            "v$version"|"v$version-"*)
+              echo "tag $GITHUB_REF_NAME matches Cargo.toml version $version" ;;
+            *)
+              echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $version"
+              exit 1 ;;
+          esac
+
   build:
+    needs: check
     strategy:
       fail-fast: false
       matrix:
