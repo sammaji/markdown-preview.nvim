@@ -27,6 +27,11 @@ jobs:
               echo "::error::tag $GITHUB_REF_NAME does not match Cargo.toml version $version"
               exit 1 ;;
           esac
+      - uses: dtolnay/rust-toolchain@stable
+      # the build below runs with --locked, which refuses a stale lockfile;
+      # catch that here instead of in four platform jobs
+      - name: Cargo.lock is up to date
+        run: cargo metadata --locked --format-version 1 > /dev/null
 
   build:
     needs: check
