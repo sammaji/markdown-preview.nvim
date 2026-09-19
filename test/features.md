@@ -63,7 +63,7 @@ Fenced code is highlighted by highlight.js:
 -- lazy.nvim
 {
   "sammaji/markdown-preview.nvim",
-  build = function() vim.fn["mkdp#util#install"]() end,
+  cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
   ft = { "markdown" },
 }
 ```

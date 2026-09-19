@@ -1,5 +1,34 @@
 # `sammaji/markdown-preview.nvim` changelog
 
+## v0.1.1
+
+#### Added
+- The server binary is installed automatically. `:MarkdownPreview` downloads it
+  when it is missing, or when it does not match the plugin version after an
+  update, and opens the preview once the download has finished. A plugin
+  manager build hook is no longer required; a `cargo build --release` binary in
+  `target/release` is still used as is and never triggers a download
+  ([#6](https://github.com/sammaji/markdown-preview.nvim/issues/6)).
+- `:checkhealth mkdp` warns when the installed binary does not match the plugin
+  version.
+
+#### Changed
+- lazy.nvim installs the binary on `:Lazy install` and refreshes it on
+  `:Lazy update` with no configuration, through a `build.lua` in the
+  repository. Other plugin managers keep using a build hook, now
+  `mkdp#util#install_sync()`, which waits for the download to finish so the
+  manager reports the real result.
+- `app/install.sh` and `app/install.cmd` without a tag argument now install the
+  release matching the plugin's `Cargo.toml` version instead of the newest
+  release, so a bare run agrees with what the plugin expects.
+
+#### Fixed
+- `mkdp#util#install_sync()` no longer leaves the window's directory pointing at
+  the plugin's `app/` directory.
+
+#### Authors
+- [@sammaji](https://github.com/sammaji)
+
 ## v0.1.0
 
 The preview server is rewritten in Rust and the preview page is rebuilt on

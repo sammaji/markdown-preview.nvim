@@ -1,6 +1,11 @@
 let s:mkdp_root_dir = expand('<sfile>:h:h:h')
 let s:pre_build = s:mkdp_root_dir . '/app/bin/markdown-preview-'
 let s:exe = has('win32') || has('win64') ? '.exe' : ''
+let s:local_build = s:mkdp_root_dir . '/target/release/markdown-preview' . s:exe
+" a download is in flight, or one failed and is not retried until the next
+" explicit mkdp#util#install()
+let s:installing = 0
+let s:install_error = ''
 
 " echo message
 function! mkdp#util#echo_messages(hl, msgs)
@@ -32,11 +37,20 @@ function! s:try_open_preview_page(timer_id) abort
   endif
 endfunction
 
-" open preview page
+" open preview page, downloading the server binary first when it is missing or
+" does not match the plugin version
 function! mkdp#util#open_preview_page() abort
   if get(s:, 'try_id', '') !=# ''
     return
   endif
+  if mkdp#util#server_ready()
+    call s:open_preview_page()
+  else
+    call s:install_server(bufnr('%'))
+  endif
+endfunction
+
+function! s:open_preview_page() abort
   let l:server_status = mkdp#rpc#get_server_status()
   if l:server_status ==# -1
     call mkdp#rpc#start_server()
@@ -127,6 +141,7 @@ function! mkdp#util#open_terminal(opts) abort
 endfunction
 
 function! s:markdown_preview_installed(status, ...) abort
+  let s:installing = 0
   if a:status != 0
     call mkdp#util#echo_messages('Error', '[markdown-preview]: install fail')
     return
@@ -135,7 +150,8 @@ function! s:markdown_preview_installed(status, ...) abort
 endfunction
 
 function! s:trim(str) abort
-  return substitute(a:str, '\v^(\s|\\n)*|(\s|\\n)*$', '', 'g')
+  " [[:space:]] also covers the \r of a Windows binary's --version output
+  return substitute(a:str, '\v^[[:space:]]*|[[:space:]]*$', '', 'g')
 endfunction
 
 " version of the plugin, read from Cargo.toml
@@ -152,9 +168,8 @@ endfunction
 " path of the server binary: a local `cargo build --release` takes precedence
 " over the pre built binary downloaded by mkdp#util#install()
 function! mkdp#util#server_binary() abort
-  let l:local_build = s:mkdp_root_dir . '/target/release/markdown-preview' . s:exe
-  if executable(l:local_build)
-    return l:local_build
+  if executable(s:local_build)
+    return s:local_build
   endif
   let l:pre_build = s:pre_build . mkdp#util#get_platform() . s:exe
   if executable(l:pre_build)
@@ -181,26 +196,117 @@ function! mkdp#util#preview_data(bufnr) abort
         \ }
 endfunction
 
-function! mkdp#util#install(...)
+" 1 when a server binary matching the plugin version is available, so
+" :MarkdownPreview can start it without downloading anything
+function! mkdp#util#server_ready() abort
+  " a local cargo build (see mkdp#util#server_binary) is used as is
+  if executable(s:local_build)
+    return 1
+  endif
   let l:version = mkdp#util#version()
-  if s:trim(mkdp#util#pre_build_version()) ==# l:version
+  if l:version ==# ''
+    " no version to compare against, use whatever is installed
+    return mkdp#util#server_binary() !=# ''
+  endif
+  return s:trim(mkdp#util#pre_build_version()) ==# l:version
+endfunction
+
+function! s:install_cmd(version) abort
+  return (mkdp#util#get_platform() ==# 'win' ? 'install.cmd' : './install.sh') . ' v' . a:version
+endfunction
+
+" download the server binary and, once it is there, open the preview of
+" a:bufnr. The download runs in a terminal, so it blocks neither Vim nor Neovim.
+function! s:install_server(bufnr) abort
+  if s:installing
     return
   endif
-  " prefer a local cargo build (see mkdp#util#server_binary) over downloading
-  if executable(s:mkdp_root_dir . '/target/release/markdown-preview' . s:exe)
+  if s:install_error !=# ''
+    " a failed download is not retried until :call mkdp#util#install()
+    call mkdp#util#echo_messages('Error', s:install_error)
     return
   endif
-  let cmd = (mkdp#util#get_platform() ==# 'win' ? 'install.cmd' : './install.sh') . ' v' . l:version
+  let l:version = mkdp#util#version()
+  if l:version ==# ''
+    call mkdp#util#echo_messages('Error', '[markdown-preview.nvim]: cannot read the plugin version from Cargo.toml')
+    return
+  endif
+  let s:installing = 1
+  call mkdp#util#echo_messages('Type', '[markdown-preview.nvim]: downloading server binary v' . l:version . ' ...')
+  call mkdp#util#open_terminal({
+        \ 'cmd': s:install_cmd(l:version),
+        \ 'cwd': s:mkdp_root_dir . '/app',
+        \ 'keepfocus': 1,
+        \ 'Callback': function('s:server_installed', [a:bufnr])
+        \})
+endfunction
+
+function! s:server_installed(bufnr, status, ...) abort
+  let s:installing = 0
+  " install.sh exits 0 on a platform without a pre built binary, so check that
+  " the binary is really there rather than trusting the exit status alone
+  if a:status != 0 || !mkdp#util#server_ready()
+    let s:install_error = '[markdown-preview.nvim]: could not download the server binary, run :call mkdp#util#install() or `cargo build --release` in the plugin directory'
+    call mkdp#util#echo_messages('Error', s:install_error)
+    return
+  endif
+  call mkdp#util#echo_messages('Type', '[markdown-preview.nvim]: install completed')
+  let l:wins = win_findbuf(a:bufnr)
+  if empty(l:wins)
+    return
+  endif
+  call win_gotoid(l:wins[0])
+  call mkdp#rpc#stop_server()
+  call s:open_preview_page()
+endfunction
+
+" Vim reports a tab local directory as haslocaldir() == 2, Neovim reports 0 and
+" only tells about it when asked with the tab argument
+function! s:has_tab_dir() abort
+  return exists(':tcd') ==# 2 && haslocaldir() ==# 0 && haslocaldir(-1, 0) !=# 0
+endfunction
+
+function! mkdp#util#install(...)
+  " an explicit install retries a download that failed earlier
+  let s:install_error = ''
+  if mkdp#util#server_ready()
+    return
+  endif
+  let l:version = mkdp#util#version()
+  if l:version ==# ''
+    call mkdp#util#echo_messages('Error', '[markdown-preview.nvim]: cannot read the plugin version from Cargo.toml')
+    return
+  endif
+  let cmd = s:install_cmd(l:version)
   if get(a:, '1', v:false) ==# v:true
-    execute 'lcd ' . s:mkdp_root_dir . '/app'
-    execute '!' . cmd
+    " blocking, so a plugin manager's build hook waits for the download. Restore
+    " the window's directory afterwards: the hook runs in the user's window
+    let l:cwd = getcwd()
+    let l:localdir = haslocaldir()
+    let l:tabdir = s:has_tab_dir()
+    try
+      execute 'lcd ' . fnameescape(s:mkdp_root_dir . '/app')
+      execute '!' . cmd
+    finally
+      if l:localdir ==# 1
+        execute 'lcd ' . fnameescape(l:cwd)
+      elseif l:localdir ==# 2 || l:tabdir
+        execute 'tcd ' . fnameescape(l:cwd)
+      else
+        execute 'cd ' . fnameescape(l:cwd)
+      endif
+    endtry
   else
+    if s:installing
+      return
+    endif
+    let s:installing = 1
     call mkdp#util#open_terminal({
           \ 'cmd': cmd,
           \ 'cwd': s:mkdp_root_dir . '/app',
+          \ 'keepfocus': 1,
           \ 'Callback': function('s:markdown_preview_installed')
           \})
-    wincmd p
   endif
 endfunction
 

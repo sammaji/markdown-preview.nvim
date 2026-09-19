@@ -58,9 +58,22 @@ get_latest_release() {
     sed -E 's/.*"([^"]+)".*/\1/'
 }
 
+# version of the plugin checkout this script lives in, so a bare ./install.sh
+# downloads the binary the plugin expects rather than the newest release
+get_plugin_version() {
+  [ -f ../Cargo.toml ] || return 1
+  sed -nE 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' ../Cargo.toml | head -n 1
+}
+
 if [ $# -eq 0 ]; then
-  info "Fetching latest release."
-  tag=$(get_latest_release)
+  version=$(get_plugin_version || true)
+  if [ -n "${version:-}" ]; then
+    tag="v${version}"
+    info "Installing the binary for plugin version ${version}."
+  else
+    info "Fetching latest release."
+    tag=$(get_latest_release)
+  fi
 else
   tag=$1
 fi

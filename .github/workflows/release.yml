@@ -29,12 +29,12 @@ jobs:
             name: markdown-preview-win
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # build.rs builds the preview page in app/
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           package_json_file: app/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -58,7 +58,7 @@ jobs:
         run: |
           Copy-Item target/${{ matrix.target }}/release/markdown-preview.exe ${{ matrix.name }}.exe
           Compress-Archive -Path ${{ matrix.name }}.exe -DestinationPath ${{ matrix.name }}.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.name }}
           path: ${{ matrix.name }}.*z*
@@ -67,10 +67,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             *.tar.gz
