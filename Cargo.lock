@@ -309,12 +309,16 @@ name = "markdown-preview"
 version = "0.1.1"
 dependencies = [
  "axum",
+ "futures-util",
+ "getrandom",
  "include_dir",
+ "libc",
  "mime_guess",
  "percent-encoding",
  "rmpv",
  "serde_json",
  "tokio",
+ "tokio-tungstenite",
 ]
 
 [[package]]
