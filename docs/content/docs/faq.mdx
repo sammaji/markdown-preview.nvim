@@ -1,0 +1,87 @@
+---
+title: FAQ
+description: Answers to common questions.
+---
+
+## Why is the synchronised scrolling lagging?
+
+Part of the refreshes are triggered by `CursorHold`, which waits `updatetime`
+milliseconds after the cursor stops. Set it to a lower value:
+
+```lua
+vim.opt.updatetime = 100
+```
+
+## The page does not update after a plugin or command changes the buffer
+
+The page refreshes on edits and cursor moves in the previewed buffer. A change
+made by a script without moving the cursor, or in a hidden buffer, shows up
+on the next cursor move in that buffer.
+
+## `:MarkdownPreview` is not an editor command
+
+The commands are only defined in buffers whose filetype is in `filetypes`
+(`markdown` by default). Check `:set filetype?`, add the filetype:
+
+```lua
+opts = { filetypes = { "markdown", "vimwiki" } }
+```
+
+or make the commands available everywhere with `command_for_global = true`.
+
+## The server binary does not download
+
+The download needs `curl` or `wget` (PowerShell on Windows) and access to
+GitHub. `:checkhealth mkdp` shows what is installed. You can:
+
+- run `:call mkdp#util#install()` to try again and see the error, or
+- [build the server from source](./installation.mdx#building-from-source), which
+  never downloads anything.
+
+## How do I change between the dark and light theme?
+
+The theme follows your system preference, or `theme` if it is set. To switch
+it in the page, click the sun or moon button in the header. See [Themes and
+custom CSS](./features/themes.mdx).
+
+## Can a theme use my own fonts?
+
+Yes. A font the theme names in `--font-sans` or `--font-mono` is used if it is
+installed on your system. A font file can also sit next to the theme, loaded
+with a relative `@font-face` URL, or the theme can `@import` it from Google
+Fonts. See [Fonts](./features/themes.mdx#fonts).
+
+## How do I open the preview in a new browser window?
+
+Give `browser` as a command with its arguments; the URL is appended. See [A new
+browser window](./features/browser.mdx#a-new-browser-window).
+
+## The browser does not open in WSL
+
+See [WSL](./features/browser.mdx#wsl).
+
+## How do I preview a file on a remote machine?
+
+Forward the preview's port over SSH, see [Remote
+machines](./features/browser.mdx#remote-machines).
+
+## How do I open the preview on my phone?
+
+Turn on `open_to_the_world` and open the preview URL, token included, on the
+phone. See [Sharing on your network](./features/browser.mdx#sharing-on-your-network).
+
+## My Chart.js charts stopped rendering after upgrading
+
+Charts use Chart.js 4. Configs written for Chart.js 2 need to be migrated, see
+the [Chart.js migration guide](https://www.chartjs.org/docs/latest/migration/v3-migration.html).
+
+## Where is the log?
+
+In the system temp directory, named `mkdp-nvim-<uid>.log` (`mkdp-nvim.log` on
+Windows). Once it passes 1 MB the log moves to `mkdp-nvim-<uid>.1.log`, and
+back again when that one fills up, so look at the newer of the two. For more
+detail, start the editor with:
+
+```sh
+NVIM_MKDP_LOG_LEVEL=debug NVIM_MKDP_LOG_FILE=/tmp/mkdp.log nvim file.md
+```

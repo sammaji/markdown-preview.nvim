@@ -1,0 +1,94 @@
+---
+title: Quickstart
+description: Install the plugin, open your first preview and change the settings most people change.
+---
+
+## Requirements
+
+- Neovim, or Vim 8.1+
+- A web browser
+
+Node.js is not needed. The plugin runs a small server binary, which it
+downloads for macOS (x64, arm64), Linux (x64, arm64), FreeBSD (x64) and
+Windows (x64). On other systems, [build it from
+source](./installation.mdx#building-from-source).
+
+## Install
+
+With [lazy.nvim](https://github.com/folke/lazy.nvim):
+
+```lua
+{
+  "sammaji/markdown-preview.nvim",
+  cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
+  ft = { "markdown" },
+  keys = {
+    { "<leader>mp", "<cmd>MarkdownPreviewToggle<cr>", ft = "markdown", desc = "Markdown preview" },
+  },
+}
+```
+
+lazy.nvim downloads the server when it installs or updates the plugin. For
+other plugin managers, see [Installation](./installation.mdx).
+
+## Open a preview
+
+Open a markdown file and run `:MarkdownPreview`, or press `<leader>mp` with the
+mapping above. The preview opens in your browser, follows your edits as you
+type and scrolls along with the cursor.
+
+| Command                  | What it does                           |
+| ------------------------ | -------------------------------------- |
+| `:MarkdownPreview`       | Open the preview of the current buffer |
+| `:MarkdownPreviewStop`   | Stop the preview                       |
+| `:MarkdownPreviewToggle` | Open or stop the preview               |
+
+To see every feature at once, open
+[`examples/features.md`](https://github.com/sammaji/markdown-preview.nvim/blob/master/examples/features.md) from the plugin directory and
+preview it.
+
+## Change a few settings
+
+In Neovim, pass options to `setup()`; lazy.nvim does that for you with
+`opts`:
+
+```lua
+{
+  "sammaji/markdown-preview.nvim",
+  -- ...
+  opts = {
+    -- always use the dark theme instead of following the system
+    theme = "dark",
+    -- open the preview in this browser instead of the default one
+    browser = "firefox",
+    -- keep the top of the editor window at the top of the page
+    preview_options = { sync_scroll_type = "top" },
+    -- keep the page open when you switch to another buffer
+    auto_close = false,
+  },
+}
+```
+
+In Vim, set the same options as `g:mkdp_*` variables before the plugin loads:
+
+```vim
+let g:mkdp_theme = 'dark'
+let g:mkdp_browser = 'firefox'
+let g:mkdp_preview_options = { 'sync_scroll_type': 'top' }
+let g:mkdp_auto_close = 0
+```
+
+Every option is in the [configuration reference](./configuration.mdx).
+
+## When something is wrong
+
+Run `:checkhealth mkdp` in Neovim. It shows which server binary is used and
+whether it matches the plugin.
+
+Common questions:
+
+- [The scrolling lags behind the cursor](./faq.mdx#why-is-the-synchronised-scrolling-lagging)
+- [The browser does not open in WSL](./features/browser.mdx#wsl)
+- [Previewing a file on a remote machine](./features/browser.mdx#remote-machines)
+- [Using my own look for the page](./features/themes.mdx)
+- [More questions](./faq.mdx)

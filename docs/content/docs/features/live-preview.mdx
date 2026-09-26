@@ -1,0 +1,79 @@
+---
+title: Live preview
+description: Refreshing, synchronised scrolling, one page for several buffers, opening and closing automatically.
+---
+
+## Refreshing
+
+The page follows the buffer, not the file: it updates as you type, before you
+save. By default it refreshes on every edit and cursor move.
+
+For very large files or slow machines, refresh less often:
+
+```lua
+opts = { refresh_slow = true }
+```
+
+The page then refreshes when you save, leave insert mode, or stop moving the
+cursor for `'updatetime'` milliseconds.
+
+While you type, the page keeps what you were looking at:
+
+- A Mermaid diagram with a syntax error keeps showing its last good drawing,
+  dimmed, until it is valid again.
+- `<details>` blocks you opened or closed on the page stay that way.
+
+## Synchronised scrolling
+
+The page scrolls with the cursor. Choose how with `sync_scroll_type`:
+
+| Value                | The page keeps                                          |
+| -------------------- | ------------------------------------------------------- |
+| `"middle"` (default) | the cursor line in the middle of the page               |
+| `"top"`              | the top line of the editor window at the top of the page |
+| `"relative"`         | the cursor line at the same height as in the editor     |
+
+```lua
+opts = { preview_options = { sync_scroll_type = "top" } }
+```
+
+Turn it off with `preview_options = { disable_sync_scroll = 1 }`.
+
+If scrolling lags behind the cursor, lower `'updatetime'`, see the
+[FAQ](../faq.mdx#why-is-the-synchronised-scrolling-lagging).
+
+## Opening and closing automatically
+
+- `auto_start = true` opens the preview whenever you enter a markdown buffer.
+- `auto_close` (on by default) closes the page when you leave its buffer for
+  another one. Turn it off to keep previews open while you work in other
+  files.
+
+## One page for several buffers
+
+By default each buffer gets its own page. To reuse one page:
+
+```lua
+opts = {
+  combine_preview = true,
+  auto_close = false,
+}
+```
+
+`:MarkdownPreview` in another buffer then switches the open page to that
+buffer. With `combine_preview_auto_refresh` (on by default), entering a
+markdown buffer is enough.
+
+## The page
+
+- The header shows the file name. Hide it with
+  `preview_options = { disable_filename = 1 }`.
+- The tab title is `page_title`, where `${name}` is the file name.
+- The sun or moon button in the header switches between the light and
+  dark theme.
+- The header says "Disconnected" when the page loses its connection to the
+  editor (it reconnects by itself), and "Preview stopped" after
+  `:MarkdownPreviewStop`.
+- `preview_options = { content_editable = true }` lets you edit the page to
+  try out wording. The edits are not written to the buffer, and the next
+  refresh replaces them.

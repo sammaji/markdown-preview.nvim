@@ -1,0 +1,139 @@
+---
+title: Browser and sharing
+description: Choosing the browser, WSL, remote machines, sharing the preview on your network, and hooks.
+---
+
+## Choosing the browser
+
+By default the preview opens in the system's default browser. `browser`
+changes that:
+
+```lua
+-- an application name, opened the way the system opens applications:
+-- `open -a` on macOS, `start` on Windows, run as a program on Linux
+opts = { browser = "firefox" }
+
+-- a command with arguments; the URL is appended
+opts = { browser = { "firefox", "-P", "work" } }
+```
+
+If the browser doesn't open, the error message includes the URL, so you can
+open it yourself. `echo_preview_url = true` always shows the URL.
+
+For anything a command can't express, `browserfunc` names a Vimscript function
+that is called with the URL instead:
+
+```vim
+function! OpenPreview(url) abort
+  call system('qutebrowser --target window ' . shellescape(a:url) . ' &')
+endfunction
+let g:mkdp_browserfunc = 'OpenPreview'
+```
+
+## A new browser window
+
+Linux:
+
+```lua
+opts = { browser = { "firefox", "--new-window" } }
+```
+
+Chrome and Chromium take `--new-window` too.
+
+macOS:
+
+```lua
+opts = { browser = { "open", "-na", "Firefox", "--args", "--new-window" } }
+```
+
+Replace `Firefox` with `Google Chrome` or `Brave Browser` if you prefer.
+
+## WSL
+
+Without `browser`, the preview tries, in order:
+
+1. `wslview`, from [wslu](https://github.com/wslutilities/wslu)
+2. Windows' `cmd.exe`, also from `/mnt/c/Windows/System32` when Windows'
+   `PATH` is not appended to WSL's
+3. `xdg-open`
+
+A `browser` name runs as a Linux program first and falls back to Windows'
+`start`, so both a Linux `firefox` and a Windows browser work. For full
+control, give the command:
+
+```lua
+opts = { browser = { "/mnt/c/Program Files/Mozilla Firefox/firefox.exe", "-P", "work" } }
+```
+
+## Remote machines
+
+To edit on a remote machine over SSH and preview in your local browser,
+forward the preview's port. Pin the port on the remote machine, and don't try
+to open a browser there:
+
+```lua
+{
+  "sammaji/markdown-preview.nvim",
+  -- ...
+  init = function()
+    -- browserfunc must be a Vimscript function
+    vim.cmd([[
+      function! MkdpNoBrowser(url) abort
+      endfunction
+    ]])
+  end,
+  opts = {
+    port = "8090",
+    browserfunc = "MkdpNoBrowser",
+    echo_preview_url = true,
+  },
+}
+```
+
+Connect with the port forwarded, then open the URL that `:MarkdownPreview`
+shows (`http://localhost:8090/page/<n>`) in your local browser:
+
+```sh
+ssh -L 8090:localhost:8090 remote-host
+```
+
+If port 8090 is taken on the remote machine, the next free port is used; the
+URL shows which one.
+
+## Sharing on your network
+
+`open_to_the_world = true` makes the server listen on all network interfaces,
+so a phone or another computer on your network can open the preview. The
+preview URL then uses your machine's IP address (or `open_ip`, when set) and
+carries a secret token:
+
+```text
+http://192.168.1.20:8090/page/1?token=3f9c...
+```
+
+Share the whole URL. Without the token, the server answers nothing: no page,
+no images and no live updates. The token changes every time the server starts.
+
+Even without `open_to_the_world`, only the preview page itself can connect to
+the live updates, so other web sites open in your browser can't read your
+buffer through `localhost`.
+
+## Hooks
+
+`on_start` is called with the preview URL whenever a preview page is opened,
+and `on_stop` when `:MarkdownPreviewStop` stops the preview. Each is a
+function name, a Funcref, or in Neovim a Lua function:
+
+```lua
+opts = {
+  on_start = function(url)
+    vim.fn.setreg("+", url)
+    vim.notify("Preview at " .. url .. " (copied)")
+  end,
+  on_stop = function()
+    vim.notify("Preview stopped")
+  end,
+}
+```
+
+An error in a hook is shown as a message and doesn't stop the preview.

@@ -1,0 +1,195 @@
+---
+title: Installation
+description: Every plugin manager, building from source, and moving from iamcco/markdown-preview.nvim.
+---
+
+The plugin needs Neovim or Vim 8.1+, and a server binary that it runs in the
+background. Pre-built binaries are published for:
+
+| System  | Architectures |
+| ------- | ------------- |
+| macOS   | x64, arm64    |
+| Linux   | x64, arm64    |
+| FreeBSD | x64           |
+| Windows | x64           |
+
+On anything else, [build the server from source](#building-from-source).
+
+**You never have to download the binary by hand.** If it is missing, or does
+not match the plugin version after an update, `:MarkdownPreview` downloads it
+first and then opens the preview. The build hooks below only make that happen
+when you install or update, so the first preview opens straight away.
+
+## lazy.nvim
+
+```lua
+{
+  "sammaji/markdown-preview.nvim",
+  cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
+  ft = { "markdown" },
+}
+```
+
+No `build` is needed: the plugin ships a `build.lua`, which lazy.nvim runs on
+install and on every update. Add `opts = { ... }` to configure it, see
+[Configuration](./configuration.mdx).
+
+<Callout type="warn">
+Don't call `mkdp#util#install()` from a lazy.nvim `build` function, as many
+configurations copied from the original plugin do. lazy.nvim runs it before
+the plugin is on the `runtimepath`, so it fails with `E117: Unknown
+function`.
+</Callout>
+
+## packer.nvim
+
+```lua
+use({
+  "sammaji/markdown-preview.nvim",
+  cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
+  ft = { "markdown" },
+  run = function() vim.fn["mkdp#util#install_sync"]() end,
+})
+```
+
+## vim-plug
+
+```vim
+Plug 'sammaji/markdown-preview.nvim', { 'do': { -> mkdp#util#install_sync() }, 'for': ['markdown', 'vim-plug'] }
+```
+
+`vim-plug` in `for` loads the plugin in vim-plug's own window, so the `do` hook
+can call it (see
+[iamcco/markdown-preview.nvim#50](https://github.com/iamcco/markdown-preview.nvim/issues/50)).
+
+In build hooks, use `mkdp#util#install_sync()` rather than
+`mkdp#util#install()`. It waits for the download, so the plugin manager reports
+whether it worked instead of finishing while the download still runs.
+
+## mini.deps
+
+```lua
+-- the plugin is not loaded yet when the hooks run, so call the install script
+local function install_server(params)
+  local cmd = vim.fn.has("win32") == 1 and { "cmd.exe", "/c", "install.cmd" } or { "./install.sh" }
+  vim.system(cmd, { cwd = params.path .. "/app" }):wait()
+end
+
+MiniDeps.add({
+  source = "sammaji/markdown-preview.nvim",
+  hooks = { post_install = install_server, post_checkout = install_server },
+})
+```
+
+The hooks are optional; without them, the first `:MarkdownPreview` downloads
+the server.
+
+## vim.pack (Neovim 0.12+)
+
+```lua
+vim.api.nvim_create_autocmd("PackChanged", {
+  callback = function(ev)
+    local data = ev.data
+    if data.spec.name == "markdown-preview.nvim" and data.kind ~= "delete" then
+      local cmd = vim.fn.has("win32") == 1 and { "cmd.exe", "/c", "install.cmd" } or { "./install.sh" }
+      vim.system(cmd, { cwd = data.path .. "/app" }):wait()
+    end
+  end,
+})
+
+vim.pack.add({ "https://github.com/sammaji/markdown-preview.nvim" })
+```
+
+Create the autocommand before `vim.pack.add()`, so it also runs on the first
+install. It is optional, as with mini.deps.
+
+## dein.vim
+
+```vim
+call dein#add('sammaji/markdown-preview.nvim', {
+      \ 'on_ft': ['markdown'],
+      \ 'build': 'sh -c "cd app && ./install.sh"',
+      \ })
+```
+
+On Windows, use `'build': 'cd app && install.cmd'`.
+
+## Native packages, without a plugin manager
+
+Clone the plugin into a `start` package directory and download the server
+once.
+
+Neovim:
+
+```sh
+git clone https://github.com/sammaji/markdown-preview.nvim \
+  ~/.local/share/nvim/site/pack/plugins/start/markdown-preview.nvim
+~/.local/share/nvim/site/pack/plugins/start/markdown-preview.nvim/app/install.sh
+```
+
+Vim:
+
+```sh
+git clone https://github.com/sammaji/markdown-preview.nvim \
+  ~/.vim/pack/plugins/start/markdown-preview.nvim
+~/.vim/pack/plugins/start/markdown-preview.nvim/app/install.sh
+```
+
+On Windows, the directories are `%LOCALAPPDATA%\nvim-data\site\pack\plugins\start`
+for Neovim and `%USERPROFILE%\vimfiles\pack\plugins\start` for Vim, and the
+script is `app\install.cmd`.
+
+Without an argument, `install.sh` and `install.cmd` download the binary that
+matches the plugin's version. Run them again after `git pull`, or let
+`:MarkdownPreview` do it.
+
+## Building from source
+
+Build the server yourself on a system without a pre-built binary, or to run
+your own changes:
+
+```sh
+cd path/to/markdown-preview.nvim
+cargo build --release
+```
+
+This needs [Rust](https://rustup.rs) 1.86+ and Node.js 20.9+ with pnpm or npx
+(Node.js is only needed to build the page, not to run it).
+
+A build in `target/release` is always used before a downloaded binary, and the
+plugin never downloads anything while it exists. So it can replace the build
+hook entirely, e.g. with lazy.nvim:
+
+```lua
+{
+  "sammaji/markdown-preview.nvim",
+  build = "cargo build --release",
+  -- ...
+}
+```
+
+## Moving from iamcco/markdown-preview.nvim
+
+This plugin is a fork with the same commands and `g:mkdp_*` options, so most
+configurations keep working. When you switch:
+
+1. Replace `iamcco/markdown-preview.nvim` with `sammaji/markdown-preview.nvim`,
+   and uninstall the original, since both define the same commands.
+2. Remove the old build hook (`cd app && yarn install`, `npx --yes yarn
+   install` or `mkdp#util#install()`). Use the hook for your plugin manager
+   above, or none with lazy.nvim.
+3. Node.js is no longer needed to run the preview.
+4. The page looks different: it is styled with
+   [shadcn/ui theme variables](./features/themes.mdx). A `g:mkdp_markdown_css`
+   written for the old page still works; with `[data-theme="dark"]`
+   selectors, it can also use the `.dark` class now.
+5. Chart.js charts use Chart.js 4. Configs written for Chart.js 2 need the
+   [migration](https://www.chartjs.org/docs/latest/migration/v3-migration.html).
+
+## Checking the installation
+
+In Neovim, run `:checkhealth mkdp`. It shows the platform, the plugin version,
+the server binary in use and whether it matches the plugin.
+
+In Vim, `:echo mkdp#util#server_binary()` shows the binary in use, and
+`:call mkdp#util#install()` downloads it again.
