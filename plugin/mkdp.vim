@@ -56,24 +56,21 @@ if !exists('g:mkdp_browser')
   let g:mkdp_browser = ''
 endif
 
-if !exists('g:mkdp_preview_options')
-  let g:mkdp_preview_options = {
-      \ 'mkit': {},
-      \ 'katex': {},
-      \ 'uml': {},
-      \ 'maid': {},
-      \ 'disable_sync_scroll': 0,
-      \ 'sync_scroll_type': 'middle',
-      \ 'hide_yaml_meta': 1,
-      \ 'sequence_diagrams': {},
-      \ 'flowchart_diagrams': {},
-      \ 'content_editable': v:false,
-      \ 'disable_filename': 0,
-      \ 'toc': {}
-      \ }
-elseif !has_key(g:mkdp_preview_options, 'disable_filename')
-  let g:mkdp_preview_options['disable_filename'] = 0
-endif
+" options the user leaves out keep their defaults
+let g:mkdp_preview_options = extend(get(g:, 'mkdp_preview_options', {}), {
+    \ 'mkit': {},
+    \ 'katex': {},
+    \ 'uml': {},
+    \ 'maid': {},
+    \ 'disable_sync_scroll': 0,
+    \ 'sync_scroll_type': 'middle',
+    \ 'hide_yaml_meta': 1,
+    \ 'sequence_diagrams': {},
+    \ 'flowchart_diagrams': {},
+    \ 'content_editable': v:false,
+    \ 'disable_filename': 0,
+    \ 'toc': {}
+    \ }, 'keep')
 
 " markdown css file absolute path
 if !exists('g:mkdp_markdown_css')
