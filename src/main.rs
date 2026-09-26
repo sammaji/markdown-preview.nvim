@@ -19,6 +19,7 @@ fn main() {
         .enable_all()
         .build()
         .expect("failed to start tokio runtime");
+
     runtime.block_on(async {
         let (editor, incoming) = editor::Editor::attach();
         server::run(editor, incoming).await;
