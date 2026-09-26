@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { connect } from "@/lib/connection";
 import { replaceKeepingDetails } from "@/lib/details";
-import { renderDiagrams, type Theme } from "@/lib/diagrams";
+import { forgetDiagrams, renderDiagrams, type Theme } from "@/lib/diagrams";
 import { createRenderer } from "@/lib/markdown";
 import type {
   PreviewData,
@@ -141,6 +141,7 @@ export function Preview() {
           window.history.replaceState(null, "", `/page/${message.bufnr}`);
           source.current = undefined;
           bodyRef.current?.replaceChildren();
+          forgetDiagrams();
           setBufnr(message.bufnr);
           break;
       }

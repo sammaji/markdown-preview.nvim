@@ -9,7 +9,11 @@ export type Theme = "light" | "dark";
 
 let charts: Chart[] = [];
 
-export async function renderDiagrams(root: HTMLElement, options: PreviewOptions, theme: Theme) {
+export async function renderDiagrams(
+  root: HTMLElement,
+  options: PreviewOptions,
+  theme: Theme,
+) {
   // charts hold resize observers on their canvas; release the previous ones
   charts.forEach((chart) => chart.destroy());
   charts = [];
@@ -28,7 +32,17 @@ function showError(element: Element, kind: string, error: unknown) {
   element.outerHTML = `<pre class="diagram-error">${escapeHtml(`${kind}: ${message}`)}</pre>`;
 }
 
-async function renderMermaid(root: HTMLElement, options: PreviewOptions, theme: Theme) {
+let lastGoodMermaid: string[] = [];
+
+export function forgetDiagrams() {
+  lastGoodMermaid = [];
+}
+
+async function renderMermaid(
+  root: HTMLElement,
+  options: PreviewOptions,
+  theme: Theme,
+) {
   const nodes = [...root.querySelectorAll<HTMLElement>(".mermaid")];
   if (nodes.length === 0) return;
   const { default: mermaid } = await import("mermaid");
@@ -37,17 +51,33 @@ async function renderMermaid(root: HTMLElement, options: PreviewOptions, theme: 
     theme: theme === "dark" ? "dark" : "default",
     ...options.maid,
   });
-  for (const node of nodes) {
+  const good = lastGoodMermaid.slice(0, nodes.length);
+  lastGoodMermaid = good;
+  for (const [index, node] of nodes.entries()) {
     try {
       await mermaid.run({ nodes: [node] });
+      good[index] = node.innerHTML;
     } catch (error) {
-      showError(node, "Mermaid", error);
+      const svg = good[index];
+      if (svg === undefined) {
+        showError(node, "Mermaid", error);
+        continue;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      node.innerHTML = svg;
+      node.classList.add("diagram-stale");
+      node.insertAdjacentHTML(
+        "afterbegin",
+        `<pre class="diagram-error">${escapeHtml(`Mermaid: ${message}`)}\n(showing the last diagram that rendered)</pre>`,
+      );
     }
   }
 }
 
 async function renderCharts(root: HTMLElement) {
-  const canvases = [...root.querySelectorAll<HTMLCanvasElement>(".chartjs canvas")];
+  const canvases = [
+    ...root.querySelectorAll<HTMLCanvasElement>(".chartjs canvas"),
+  ];
   if (canvases.length === 0) return;
   const { default: Chart } = await import("chart.js/auto");
   for (const canvas of canvases) {
@@ -91,7 +121,9 @@ async function renderDot(root: HTMLElement) {
 // js-sequence-diagrams is unmaintained and not published in a bundler
 // friendly form, so its prebuilt scripts are loaded from /_static/sequence.
 interface SequenceDiagram {
-  parse(code: string): { drawSVG(container: HTMLElement, options: Record<string, unknown>): void };
+  parse(code: string): {
+    drawSVG(container: HTMLElement, options: Record<string, unknown>): void;
+  };
 }
 
 let sequenceLibrary: Promise<SequenceDiagram> | undefined;
@@ -112,7 +144,12 @@ function loadSequenceLibrary(): Promise<SequenceDiagram> {
     css.rel = "stylesheet";
     css.href = "/_static/sequence/sequence-diagram-min.css";
     document.head.appendChild(css);
-    for (const file of ["webfont.js", "snap.svg.min.js", "underscore-min.js", "sequence-diagram-min.js"]) {
+    for (const file of [
+      "webfont.js",
+      "snap.svg.min.js",
+      "underscore-min.js",
+      "sequence-diagram-min.js",
+    ]) {
       await loadScript(`/_static/sequence/${file}`);
     }
     return (window as unknown as { Diagram: SequenceDiagram }).Diagram;
@@ -120,8 +157,13 @@ function loadSequenceLibrary(): Promise<SequenceDiagram> {
   return sequenceLibrary;
 }
 
-async function renderSequenceDiagrams(root: HTMLElement, options: PreviewOptions) {
-  const nodes = [...root.querySelectorAll<HTMLElement>("div.sequence-diagrams")];
+async function renderSequenceDiagrams(
+  root: HTMLElement,
+  options: PreviewOptions,
+) {
+  const nodes = [
+    ...root.querySelectorAll<HTMLElement>("div.sequence-diagrams"),
+  ];
   if (nodes.length === 0) return;
   const Diagram = await loadSequenceLibrary();
   for (const node of nodes) {

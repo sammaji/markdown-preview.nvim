@@ -250,3 +250,7 @@ body {
 .front-matter pre {
   margin: 0;
 }
+
+.diagram-stale > svg {
+  opacity: 0.6;
+}
