@@ -8,7 +8,7 @@ const REMOTE = /^(https?:|\/\/|data:)/;
 // Relative and absolute file paths are served by the preview server, which
 // resolves them against the directory of the buffer.
 function localSrc(src: string): string {
-  return REMOTE.test(src) ? src : `/_local_image_${encodeURIComponent(src)}`;
+  return REMOTE.test(src) ? src : `/_assets/${encodeURIComponent(src)}`;
 }
 
 const HTML_IMG_SRC = /<img\s+([^>]*?)src\s*=\s*(["'])(.+?)\2([^>]*)>/gm;

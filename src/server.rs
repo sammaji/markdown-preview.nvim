@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Request, State};
-use axum::http::{header, HeaderValue, StatusCode, Uri};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode, Uri};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::Router;
@@ -43,6 +43,7 @@ pub struct App {
     next_client_id: AtomicU64,
     open_to_the_world: bool,
     port: u16,
+    token: String,
 }
 
 pub async fn run(editor: Editor, mut incoming: mpsc::UnboundedReceiver<Incoming>) {
@@ -144,7 +145,19 @@ impl App {
             next_client_id: AtomicU64::new(1),
             open_to_the_world,
             port,
+            token: new_token(),
         })
+    }
+
+    fn cookie_name(&self) -> String {
+        format!("mkdp_token_{}", self.port)
+    }
+
+    fn authorized(&self, uri: &Uri, headers: &HeaderMap) -> bool {
+        !self.open_to_the_world
+            || query_param(uri, "token") == Some(self.token.as_str())
+            || cookies(headers)
+                .any(|(name, value)| name == self.cookie_name() && value == self.token)
     }
 
     async fn process_notifications(
@@ -313,7 +326,10 @@ impl App {
         } else {
             "localhost".into()
         };
-        let url = format!("http://{host}:{}/page/{bufnr}", self.port);
+        let mut url = format!("http://{host}:{}/page/{bufnr}", self.port);
+        if self.open_to_the_world {
+            url.push_str(&format!("?token={}", self.token));
+        }
 
         let browserfunc = var_string(editor.get_var("mkdp_browserfunc").await);
         if !browserfunc.is_empty() {
@@ -337,12 +353,19 @@ fn message(msg: Value) -> Message {
     Message::Text(msg.to_string().into())
 }
 
-async fn websocket(State(app): State<Arc<App>>, uri: Uri, ws: WebSocketUpgrade) -> Response {
-    let bufnr = uri.query().and_then(|q| {
-        q.split('&')
-            .find_map(|kv| kv.strip_prefix("bufnr="))
-            .and_then(|v| v.parse::<i64>().ok())
-    });
+async fn websocket(
+    State(app): State<Arc<App>>,
+    uri: Uri,
+    headers: HeaderMap,
+    ws: WebSocketUpgrade,
+) -> Response {
+    if !same_origin(&headers) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    if !app.authorized(&uri, &headers) {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let bufnr = query_param(&uri, "bufnr").and_then(|v| v.parse::<i64>().ok());
     match bufnr {
         Some(bufnr) => ws.on_upgrade(move |socket| app.serve_client(bufnr, socket)),
         None => StatusCode::BAD_REQUEST.into_response(),
@@ -357,12 +380,32 @@ async fn route(State(app): State<Arc<App>>, req: Request) -> Response {
         .strip_prefix('/')
         .filter(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
     {
-        return Redirect::temporary(&format!("/page/{bufnr}")).into_response();
+        let query = req
+            .uri()
+            .query()
+            .map(|q| format!("?{q}"))
+            .unwrap_or_default();
+        return Redirect::temporary(&format!("/page/{bufnr}{query}")).into_response();
     }
-    if path == "/"
-        || (path.starts_with("/page/") && path[6..].starts_with(|c: char| c.is_ascii_digit()))
-    {
-        return embedded("index.html");
+    let page = path == "/"
+        || (path.starts_with("/page/") && path[6..].starts_with(|c: char| c.is_ascii_digit()));
+    let private = page || path.starts_with("/_assets/");
+    if private && !app.authorized(req.uri(), req.headers()) {
+        return unauthorized();
+    }
+    if page {
+        let mut response = embedded("index.html");
+        if app.open_to_the_world {
+            let cookie = format!(
+                "{}={}; Path=/; HttpOnly; SameSite=Strict",
+                app.cookie_name(),
+                app.token
+            );
+            if let Ok(value) = HeaderValue::from_str(&cookie) {
+                response.headers_mut().insert(header::SET_COOKIE, value);
+            }
+        }
+        return response;
     }
     let custom_css = match path {
         "/_static/markdown.css" => Some("mkdp_markdown_css"),
@@ -378,7 +421,7 @@ async fn route(State(app): State<Arc<App>>, req: Request) -> Response {
             }
         }
     }
-    if let Some(image) = path.strip_prefix("/_local_image_") {
+    if let Some(image) = path.strip_prefix("/_assets/") {
         let referer = req
             .headers()
             .get(header::REFERER)
@@ -447,6 +490,12 @@ async fn local_image(app: &App, bufnr: Option<i64>, image: &str) -> Option<Respo
     }
     info!(LOG, "imgPath {}", img_path.display());
 
+    // the route takes any path, so it must not become a way to read the
+    // user's files
+    if !is_media(&img_path) {
+        error!(LOG, "not an image: {}", img_path.display());
+        return None;
+    }
     if img_path.is_file() {
         if let Ok(bytes) = tokio::fs::read(&img_path).await {
             return Some(file_response(&img_path.to_string_lossy(), bytes));
@@ -454,6 +503,61 @@ async fn local_image(app: &App, bufnr: Option<i64>, image: &str) -> Option<Respo
     }
     error!(LOG, "image not exists: {}", img_path.display());
     None
+}
+
+fn is_media(path: &Path) -> bool {
+    mime_guess::from_path(path).iter().any(|mime| {
+        matches!(
+            mime.type_(),
+            mime_guess::mime::IMAGE | mime_guess::mime::AUDIO | mime_guess::mime::VIDEO
+        )
+    })
+}
+
+fn unauthorized() -> Response {
+    (
+        StatusCode::UNAUTHORIZED,
+        "markdown-preview.nvim: open the preview from the editor, this link is missing its token",
+    )
+        .into_response()
+}
+
+fn query_param<'a>(uri: &'a Uri, name: &str) -> Option<&'a str> {
+    uri.query()?.split('&').find_map(|kv| {
+        kv.split_once('=')
+            .filter(|(key, _)| *key == name)
+            .map(|(_, value)| value)
+    })
+}
+
+fn cookies(headers: &HeaderMap) -> impl Iterator<Item = (&str, &str)> {
+    headers
+        .get_all(header::COOKIE)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .flat_map(|value| value.split(';'))
+        .filter_map(|pair| pair.trim().split_once('='))
+}
+
+/// A request without an Origin header does not come from a web page.
+fn same_origin(headers: &HeaderMap) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN) else {
+        return true;
+    };
+    let origin_host = origin
+        .to_str()
+        .ok()
+        .and_then(|o| o.split_once("://"))
+        .map(|(_, host)| host);
+    let host = headers.get(header::HOST).and_then(|h| h.to_str().ok());
+    origin_host.is_some() && origin_host == host
+}
+
+/// 128 random bits, hex encoded.
+fn new_token() -> String {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).expect("no random numbers from the OS");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn embedded(path: &str) -> Response {
