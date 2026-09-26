@@ -7,33 +7,28 @@ flexible configuration.
 
 ## Features
 
-- Cross platform (macOS, Linux, Windows), no Node.js required
-- Live updates and synchronised scrolling as you type
-- Math with [KaTeX](https://katex.org), including chemistry via mhchem
-- Diagrams: [Mermaid](https://mermaid.js.org), [PlantUML](https://plantuml.com),
-  [Graphviz](https://graphviz.org), [flowchart.js](https://flowchart.js.org),
-  [js-sequence-diagrams](https://bramp.github.io/js-sequence-diagrams) and
-  [Chart.js](https://www.chartjs.org) charts
-- Syntax highlighting, table of contents, task lists, footnotes, definition
-  lists and emoji
-- Local images, with an optional size: `![logo](./logo.png =200x100)`
-- Light and dark themes, custom CSS
-
-See [`test/features.md`](test/features.md) for a document that uses every
-feature; open it and run `:MarkdownPreview`.
+- Live updates and synchronised scrolling as you type.
+- Cross platform (macOS, Linux, Windows, FreeBSD), no Node.js required.
+- [Math](https://mkdp.sammaji.com/features/markdown#math) with KaTeX, including chemistry via
+  mhchem.
+- [Diagrams](https://mkdp.sammaji.com/features/diagrams): Mermaid (with a full-screen viewer and
+  the ELK layout), PlantUML, Graphviz, flowchart.js, js-sequence-diagrams and
+  Chart.js.
+- [GitHub-flavoured extras](https://mkdp.sammaji.com/features/markdown): alerts, tables of
+  contents, task lists, footnotes, emoji, front matter, local images with
+  sizes.
+- [Themes](https://mkdp.sammaji.com/features/themes): any
+  [shadcn/ui](https://ui.shadcn.com/themes) or [tweakcn](https://tweakcn.com)
+  theme with your own fonts, or your own CSS.
+- [Share the preview](https://mkdp.sammaji.com/features/browser) with a phone or another
+  machine, safely.
 
 ## Installation
 
 Requires Neovim or Vim 8.1+. The plugin downloads a pre-built server binary for
-macOS (x64, arm64), Linux (x64) and Windows (x64).
-
-With lazy.nvim there is nothing to configure: the repository ships a
-`build.lua`, which lazy.nvim runs on install and on update, so the binary is in
-place before the first preview and is refreshed whenever the plugin is updated.
-Other plugin managers have no equivalent, so they need the build hook shown
-below. Either way, if the binary is missing or out of date, `:MarkdownPreview`
-downloads it and then opens the preview, so nothing has to be installed by
-hand.
+macOS (x64, arm64), Linux (x64, arm64), FreeBSD (x64) and Windows (x64). If the
+binary is missing or out of date, `:MarkdownPreview` downloads it first, so the
+build hooks below only make the first preview faster.
 
 ### [lazy.nvim](https://github.com/folke/lazy.nvim)
 
@@ -42,8 +37,12 @@ hand.
   "sammaji/markdown-preview.nvim",
   cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
   ft = { "markdown" },
+  opts = {},
 }
 ```
+
+No `build` is needed: lazy.nvim runs the plugin's `build.lua` on install and
+update.
 
 ### [packer.nvim](https://github.com/wbthomason/packer.nvim)
 
@@ -62,42 +61,38 @@ use({
 Plug 'sammaji/markdown-preview.nvim', { 'do': { -> mkdp#util#install_sync() }, 'for': ['markdown', 'vim-plug'] }
 ```
 
-Adding `vim-plug` to `for` loads the plugin in vim-plug's window, so the install
-hook can run; see
-[iamcco/markdown-preview.nvim#50](https://github.com/iamcco/markdown-preview.nvim/issues/50).
+### Other plugin managers
 
-In a build hook, use `mkdp#util#install_sync()` rather than
-`mkdp#util#install()`: it waits for the download to finish, so the plugin
-manager reports the real result instead of returning while the download is
-still running.
+- [mini.deps](https://mkdp.sammaji.com/installation#minideps)
+- [vim.pack (Neovim 0.12+)](https://mkdp.sammaji.com/installation#vimpack-neovim-012)
+- [dein.vim](https://mkdp.sammaji.com/installation#deinvim)
+- [Native packages, without a plugin manager](https://mkdp.sammaji.com/installation#native-packages-without-a-plugin-manager)
+- [Moving from iamcco/markdown-preview.nvim](https://mkdp.sammaji.com/installation#moving-from-iamccomarkdown-previewnvim)
 
 ### Building from source
 
-On a platform without a pre-built binary, or to run your own build, build the
-server once in the plugin directory:
+On a platform without a pre-built binary, or to run your own build:
 
 ```sh
 cargo build --release
 ```
 
-This needs [Rust](https://rustup.rs) 1.86+ and Node.js 20.9+ with pnpm or npx.
-A `target/release` build is always preferred over a downloaded binary and never
-triggers a download, so it can replace the build hook entirely, e.g.
-`build = "cargo build --release"` for lazy.nvim.
+in the plugin directory. This needs Rust 1.86+ and Node.js 20.9+ with pnpm or
+npx. A `target/release` build is always used before a downloaded binary. Run
+`:checkhealth mkdp` to see which binary is used.
 
-Run `:checkhealth mkdp` to check which server binary is used.
+See [Installation](https://mkdp.sammaji.com/installation) for the details of each.
 
 ## Usage
 
-| Command                  | Description                             |
-| ------------------------ | --------------------------------------- |
-| `:MarkdownPreview`       | Open the preview of the current buffer  |
-| `:MarkdownPreviewStop`   | Stop the preview server                 |
-| `:MarkdownPreviewToggle` | Open or stop the preview                |
+| Command                  | Description                            |
+| ------------------------ | -------------------------------------- |
+| `:MarkdownPreview`       | Open the preview of the current buffer |
+| `:MarkdownPreviewStop`   | Stop the preview                       |
+| `:MarkdownPreviewToggle` | Open or stop the preview               |
 
-The commands are available in buffers with a filetype from `g:mkdp_filetypes`.
-Each has a `<Plug>` mapping of the same name, e.g. `<Plug>MarkdownPreviewToggle`.
-To map a key with lazy.nvim:
+Each command has a `<Plug>` mapping of the same name, e.g.
+`<Plug>MarkdownPreviewToggle`. To map a key with lazy.nvim:
 
 ```lua
 {
@@ -109,121 +104,62 @@ To map a key with lazy.nvim:
 }
 ```
 
+To see every feature, open [`examples/features.md`](examples/features.md) and
+preview it. See [Quickstart](https://mkdp.sammaji.com/quickstart).
+
 ## Configuration
 
-Set options in the `init` function of the plugin spec, so they are defined
-before the plugin loads. All options are optional; the values below are the
-defaults unless noted.
+In Neovim, pass options to `setup()`, or to lazy.nvim's `opts`, named like the
+`g:mkdp_*` variables without the prefix:
 
 ```lua
 {
   "sammaji/markdown-preview.nvim",
   -- ...
-  init = function()
-    -- open the preview when entering a markdown buffer
-    vim.g.mkdp_auto_start = 0
-
-    -- close the preview when switching from the markdown buffer to another one
-    vim.g.mkdp_auto_close = 1
-
-    -- 1: refresh only when saving or leaving insert mode
-    -- 0: refresh as you edit or move the cursor
-    vim.g.mkdp_refresh_slow = 0
-
-    -- make the preview commands available in all buffers, not just markdown ones
-    vim.g.mkdp_command_for_global = 0
-
-    -- filetypes that get the preview commands
-    vim.g.mkdp_filetypes = { "markdown" }
-
-    -- listen on all interfaces so others in your network can open the preview;
-    -- by default the server only listens on 127.0.0.1
-    vim.g.mkdp_open_to_the_world = 0
-
-    -- IP used in the preview URL, e.g. when editing on a remote machine and
-    -- previewing in a local browser (see iamcco/markdown-preview.nvim#9)
-    vim.g.mkdp_open_ip = ""
-
-    -- port of the preview server; empty picks a random one. If the port is
-    -- taken (e.g. by another (neo)vim instance), the next free port is used
-    vim.g.mkdp_port = ""
-
-    -- browser to open the preview in; empty uses the system default
-    vim.g.mkdp_browser = ""
-
-    -- name of a Vimscript function that opens the preview URL, instead of
-    -- g:mkdp_browser (see FAQS.md)
-    vim.g.mkdp_browserfunc = ""
-
-    -- echo the preview URL when opening the preview
-    vim.g.mkdp_echo_preview_url = 0
-
-    -- page title, ${name} is replaced with the file name
-    vim.g.mkdp_page_title = "「${name}」"
-
-    -- "dark" or "light"; by default the theme follows the system preference
-    vim.g.mkdp_theme = ""
-
-    -- absolute paths of custom stylesheets for the markdown and code highlighting
-    vim.g.mkdp_markdown_css = ""
-    vim.g.mkdp_highlight_css = ""
-
-    -- directory local images are resolved against; empty uses the directory
-    -- of the markdown file
-    vim.g.mkdp_images_path = ""
-
-    -- reuse the open preview page when previewing another markdown buffer;
-    -- set g:mkdp_auto_close = 0 when enabling this
-    vim.g.mkdp_combine_preview = 0
-
-    -- with g:mkdp_combine_preview, switch the preview page to a markdown
-    -- buffer when entering it
-    vim.g.mkdp_combine_preview_auto_refresh = 1
-
-    -- rendering options
-    vim.g.mkdp_preview_options = {
-      -- markdown-it options: https://github.com/markdown-it/markdown-it#init-with-presets-and-options
-      mkit = vim.empty_dict(),
-      -- KaTeX options: https://katex.org/docs/options
-      katex = vim.empty_dict(),
-      -- PlantUML: { server = "https://www.plantuml.com/plantuml", imageFormat = "img" }
-      uml = vim.empty_dict(),
-      -- Mermaid options: https://mermaid.js.org/config/schema-docs/config.html
-      maid = vim.empty_dict(),
-      -- js-sequence-diagrams options, e.g. { theme = "simple" }
-      sequence_diagrams = vim.empty_dict(),
-      -- flowchart.js options: https://flowchart.js.org
-      flowchart_diagrams = vim.empty_dict(),
-      -- markdown-it-toc-done-right options
-      toc = vim.empty_dict(),
-      disable_sync_scroll = 0,
-      -- "middle": keep the cursor line in the middle of the page
-      -- "top": keep the top line of the editor window at the top of the page
-      -- "relative": keep the cursor line at the same relative position as in the editor
-      sync_scroll_type = "middle",
-      -- hide YAML front matter
-      hide_yaml_meta = 1,
-      -- make the preview page editable
-      content_editable = false,
-      -- hide the file name header
-      disable_filename = 0,
-    }
-  end,
+  opts = {
+    -- "dark" or "light"; by default the page follows the system
+    theme = "dark",
+    -- a browser name, or a command with arguments; the URL is appended
+    browser = { "firefox", "--new-window" },
+    -- keep the page open when you switch to another buffer
+    auto_close = false,
+    -- a shadcn/ui or tweakcn theme
+    theme_css = vim.fn.expand("~/.config/nvim/mkdp-theme.css"),
+    preview_options = {
+      -- "middle", "top" or "relative"
+      sync_scroll_type = "top",
+      -- YAML front matter: "hide", "panel" or "raw"
+      front_matter = "panel",
+    },
+  },
 }
 ```
 
-> [!NOTE]
-> Empty Lua tables are converted to Vim lists, so use `vim.empty_dict()` for
-> empty option tables, or leave them out.
+In Vim, set the variables before the plugin loads:
 
-## FAQ
+```vim
+let g:mkdp_theme = 'dark'
+let g:mkdp_browser = ['firefox', '--new-window']
+let g:mkdp_auto_close = 0
+let g:mkdp_preview_options = { 'sync_scroll_type': 'top' }
+```
 
-See [FAQS.md](FAQS.md) for answers to common questions, like fixing lagging
-scroll or opening the preview in a new browser window.
+See the [configuration reference](https://mkdp.sammaji.com/configuration) for every option, and
+[Theming](https://mkdp.sammaji.com/features/themes) for styling the page.
 
-## Contributing
+## Documentation
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+The documentation is at [mkdp.sammaji.com](https://mkdp.sammaji.com).
+
+- [Quickstart](https://mkdp.sammaji.com/quickstart).
+- [Installation](https://mkdp.sammaji.com/installation).
+- [Live preview](https://mkdp.sammaji.com/features/live-preview),
+  [Markdown](https://mkdp.sammaji.com/features/markdown), [Diagrams](https://mkdp.sammaji.com/features/diagrams),
+  [Theming](https://mkdp.sammaji.com/features/themes),
+  [Browser and sharing](https://mkdp.sammaji.com/features/browser).
+- [Configuration reference](https://mkdp.sammaji.com/configuration).
+- [FAQ](https://mkdp.sammaji.com/faq).
+- [Contributing](https://mkdp.sammaji.com/contributing).
 
 ## Buy me a coffee
 

@@ -1,0 +1,111 @@
+---
+title: Testing
+description: The test suites and how to write tests.
+---
+
+## Running the tests
+
+```sh
+./test.sh                     # all suites
+./test.sh e2e                 # one suite: server, page, e2e or docs
+./test.sh e2e -g Toggle       # extra arguments go to that suite's runner
+./test.sh server local_image  # e.g. a cargo test filter
+```
+
+You need Neovim and Vim on your `PATH`, in addition to the [build
+tools](./development.mdx#requirements). `./test.sh` runs every suite even when
+one fails, and exits non-zero if any failed. Run it before every pull request
+and every release. CI (`.github/workflows/test.yml`) runs it on Linux and
+macOS.
+
+## The suites
+
+| Suite    | Where                     | Runner     | What it checks                                                                                                                                                                                                                                                  |
+| -------- | ------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server` | `src/*_test.rs`, `tests/` | cargo test | The editor protocols (msgpack-rpc and Vim's JSON channel), routes, security (token, local files, WebSocket origin), local images, themes, opening the browser, binding ports, and the built binary over stdio.                                                     |
+| `page`   | `app/test/`               | Vitest     | The markdown renderer and every plugin, diagrams, the diagram viewer, WebSocket reconnects, synchronised scrolling.                                                                                                                                             |
+| `e2e`    | `e2e/tests/`              | Playwright | A headless Neovim **and** Vim with the plugin from your checkout drive the release server, and a real browser checks the page: rendering, live edits, scrolling, images, themes, every option, starting and stopping, and installing the binary from a release. |
+
+The e2e files:
+
+| File                     | Covers                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `preview.spec.ts`        | the core loop: opening, live edits, scrolling, images, stopping and toggling              |
+| `ui.spec.ts`             | rendering of `examples/features.md`, diagram errors, themes, large and oddly named files      |
+| `page-features.spec.ts`  | GitHub alerts, the front matter panel, Mermaid's last good drawing, viewer and ELK        |
+| `options.spec.ts`        | every option in [the configuration reference](../configuration.mdx), by what it changes    |
+| `lifecycle.spec.ts`      | quitting, crashes, one page per buffer, one server per editor, reloads, `:checkhealth`    |
+| `install.spec.ts`        | downloading the binary: build hooks, `build.lua`, `:MarkdownPreview` on a fresh install   |
+| `distribution.spec.ts`   | release consistency: versions, asset names, install scripts, and the docs                 |
+
+The e2e suite builds the release binary first, so it tests what users
+download. Every test starts its own editor and server on its own port, so the
+tests run in parallel. A failing test attaches the editor's `:messages`, the
+server log and the browser console to its report.
+
+`distribution.spec.ts` also checks the documentation: every option the plugin
+reads is in `configuration.mdx` and every option there is read, every
+`mkdp#util#` function the docs mention exists, and every link between the docs
+(and from the README to the site) points to a page and heading that exist.
+The `docs` suite of `./test.sh` builds the site, which fails on broken MDX.
+
+## Writing tests
+
+**A test must fail when the feature breaks.** Passing tests for a broken
+feature are worse than failing ones. So:
+
+- Look for content that only appears when the feature works, such as a random
+  `token()` typed into the buffer, not for something that is always on the
+  page.
+- Break the feature on purpose (comment out the fix, return early) and check
+  that the test fails. Only then rely on it.
+- Don't retry: Playwright's `retries` is 0, because a retry that passes hides
+  an intermittent bug.
+
+An e2e test gets an `editor` and the browser `page`:
+
+```ts
+import { expect, preview, test, token } from "../lib/test";
+
+test("typing updates the page", async ({ editor, page }) => {
+  await preview(editor, page, "note.md", "# Title\n");
+  const typed = token();
+  await editor.keys(`Go${typed}<Esc>`);
+  await expect(page.locator(".markdown-body")).toContainText(typed);
+});
+```
+
+- `test.use({ mkdpVars: { mkdp_theme: "dark" } })` sets `g:` variables before
+  the plugin loads.
+- `launch()` starts another editor, e.g. with different variables or to run
+  commands before the preview.
+- `editor.write(path, content)` creates a file in the test's directory and
+  returns its path.
+- The same test runs against Neovim and Vim. Skip one only when the feature
+  does not exist there, like `setup()` in Vim.
+
+Server tests use the `FakeEditor` from `src/editor_test.rs`, which answers
+`get_var` and function calls from a JSON object, and `TempDir` for files.
+
+## Skipped tests and known bugs
+
+A test for a known bug is marked as an expected failure (`test.fail` in e2e,
+`test.fails` in the page tests, `#[ignore]` in the server tests) with the
+reason. It starts failing when the bug is fixed; then remove the mark.
+`cargo test -- --include-ignored` runs the ignored server tests.
+
+Every skipped and expected-to-fail test is listed with its reason in
+[`skip-test-case.md`](https://github.com/sammaji/markdown-preview.nvim/blob/master/skip-test-case.md). Update it when you add or
+remove one.
+
+## Manual checks
+
+Not covered by the tests, so check by hand before a release:
+
+- Windows: the install script, opening the browser and the whole e2e suite.
+- WSL: opening the browser (`wslview`, `cmd.exe`, `xdg-open`).
+- The release workflow's Linux arm64 and FreeBSD builds, which only run on a
+  tag.
+- `:MarkdownPreview` in a real browser window opened by the system, with your
+  own configuration.
+- PlantUML diagrams, which are drawn by a remote server.

@@ -1,0 +1,137 @@
+---
+title: Markdown
+description: GitHub alerts, tables of contents, task lists, footnotes, emoji, math, images, front matter and raw HTML.
+---
+
+The page renders markdown with [markdown-it](https://github.com/markdown-it/markdown-it)
+(CommonMark and GitHub tables and strikethrough) plus the extensions below.
+[`examples/features.md`](https://github.com/sammaji/markdown-preview.nvim/blob/master/examples/features.md) uses every one of them; preview it
+to see them all.
+
+## GitHub alerts
+
+```markdown
+> [!NOTE]
+> Useful information.
+
+> [!TIP]
+> Helpful advice.
+
+> [!IMPORTANT]
+> Key information.
+
+> [!WARNING]
+> Needs attention.
+
+> [!CAUTION]
+> Risky consequences.
+```
+
+They look like on GitHub, in the light and the dark theme.
+
+## Table of contents
+
+Put `${toc}` (or `[[toc]]`) on a line of its own to insert a table of contents
+of the headings. The `toc` [preview option](../configuration.mdx#toc) takes
+[markdown-it-toc-done-right options](https://github.com/nagaozen/markdown-it-toc-done-right#options),
+e.g. `{ level = { 2, 3 } }` to list only `##` and `###` headings.
+
+Every heading has an anchor link, shown when you hover it.
+
+## Lists
+
+```markdown
+- [x] Task lists
+- [ ] with checkboxes
+
+Term
+: Definition lists
+```
+
+## Footnotes and emoji
+
+```markdown
+A claim.[^source] :tada:
+
+[^source]: The footnote.
+```
+
+`:name:` becomes the emoji of that name.
+
+## Code
+
+Fenced code blocks are highlighted with
+[highlight.js](https://highlightjs.org) when they name a language:
+
+````markdown
+```rust
+fn main() {}
+```
+````
+
+Blocks named `mermaid`, `chart`, `dot`, `plantuml`, `flowchart` or
+`sequence-diagrams` become [diagrams](./diagrams.mdx).
+
+## Math
+
+Math is rendered with [KaTeX](https://katex.org), including chemistry with
+mhchem:
+
+```markdown
+Inline: $E = mc^2$ and $\ce{CO2 + C -> 2 CO}$.
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
+$$
+```
+
+A formula with an error is shown in red instead of breaking the page.
+[KaTeX options](https://katex.org/docs/options), such as macros, go in the
+`katex` [preview option](../configuration.mdx#katex).
+
+## Images
+
+```markdown
+![relative to the markdown file](./images/logo.png)
+![absolute, or from a parent directory of the file](/images/logo.png)
+![with a size](./images/logo.png =200x100)
+![only the width](./images/logo.png =200x)
+<img src="images/logo.png" width="50">
+```
+
+- Relative paths are resolved against the markdown file's directory, or
+  `images_path` when it is set.
+- A path starting with `/` is an absolute path when that file exists.
+  Otherwise it is looked up in the markdown file's directory and its parents,
+  as in many static site generators.
+- `=WIDTHxHEIGHT` sets the size; either side may be left out, and both may be
+  percentages.
+- Only images, audio and video are served from disk: an image path that
+  points at any other kind of file gets nothing.
+
+## Front matter
+
+YAML front matter at the top of the file is hidden by default. Set
+`front_matter` in the [preview options](../configuration.mdx#front_matter) to
+change it:
+
+- `"panel"` shows it in a collapsed panel above the document
+- `"raw"` renders it as markdown
+
+```lua
+opts = { preview_options = { front_matter = "panel" } }
+```
+
+## Raw HTML
+
+HTML in the markdown file is rendered, including `<details>`, `<kbd>` and
+`<img>`. To preview files you don't trust, turn it off:
+
+```lua
+opts = { preview_options = { mkit = { html = false } } }
+```
+
+`mkit` takes any [markdown-it
+option](https://github.com/markdown-it/markdown-it#init-with-presets-and-options).
+`linkify` (turning URLs into links) and `typographer` (smart quotes and
+dashes) are on by default.

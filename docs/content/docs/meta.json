@@ -1,0 +1,17 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "---Getting started---",
+    "index",
+    "quickstart",
+    "installation",
+    "---Features---",
+    "...features",
+    "---Reference---",
+    "configuration",
+    "faq",
+    "external:[Changelog](https://github.com/sammaji/markdown-preview.nvim/blob/master/CHANGELOG.md)",
+    "---Contributing---",
+    "...contributing"
+  ]
+}

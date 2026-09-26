@@ -1,5 +1,11 @@
 # `sammaji/markdown-preview.nvim` changelog
 
+## Unreleased
+
+#### Changed
+- The documentation is now a [Fumadocs](https://fumadocs.dev) site,
+  [mkdp.sammaji.com](https://mkdp.sammaji.com).
+
 ## v0.1.1
 
 #### Added

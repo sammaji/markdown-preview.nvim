@@ -1,0 +1,131 @@
+---
+title: Development setup
+description: Build the plugin and run your checkout.
+---
+
+## Requirements
+
+- [Rust](https://rustup.rs) 1.86 or newer
+- Node.js 20.9 or newer with [pnpm](https://pnpm.io) (or npx, which fetches
+  pnpm)
+- Neovim, and Vim 8.1+ (the tests run both)
+
+## Build
+
+```sh
+git clone https://github.com/sammaji/markdown-preview.nvim.git
+cd markdown-preview.nvim
+cargo build --release
+```
+
+`cargo build` also builds the page (`app/`) whenever a file in it changed, and
+installs its dependencies first if `app/node_modules` is missing. The page is
+embedded into the binary, so the binary is all the plugin needs at runtime. To
+skip the page build and reuse the existing `app/out`, set
+`MKDP_SKIP_PAGE_BUILD=1`.
+
+## Run your checkout
+
+Load your checkout instead of the published plugin. With lazy.nvim:
+
+```lua
+{
+  dir = "~/path/to/markdown-preview.nvim",
+  name = "markdown-preview.nvim",
+  cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
+  ft = { "markdown" },
+  build = "cargo build --release",
+}
+```
+
+Or without a plugin manager:
+
+```sh
+nvim --cmd 'set rtp^=~/path/to/markdown-preview.nvim' examples/features.md
+```
+
+A build in `target/release` is used before a downloaded binary.
+`:checkhealth mkdp` shows which binary is used.
+
+## Making changes
+
+| You changed         | To see it                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `src/` (the server) | `cargo build --release`, then `:MarkdownPreviewStop` and `:MarkdownPreview`           |
+| `app/` (the page)   | the same: the page is embedded in the binary                                         |
+| Vim script or Lua   | restart the editor                                                                   |
+
+Each editor keeps its server running, so an open preview uses the old binary
+until you stop it.
+
+To work on the page with hot reload, run `pnpm dev` in `app/`. It serves the
+page without a server, so it shows "Open this page with :MarkdownPreview";
+this is useful for styling, less so for anything that needs a buffer.
+
+[`examples/features.md`](https://github.com/sammaji/markdown-preview.nvim/blob/master/examples/features.md) uses every feature; preview it
+to check a change by eye.
+
+## Working on the docs
+
+This site is a [Fumadocs](https://fumadocs.dev) app in `docs/`. The pages are
+MDX files in `docs/content/docs/`, and `meta.json` files set the order of the
+sidebar. Run it with hot reload:
+
+```sh
+cd docs
+pnpm install
+pnpm dev
+```
+
+and open `http://localhost:3000`. Link to other pages by their file, like
+`[Testing](./testing.mdx#writing-tests)`; the site turns these into page
+links. In MDX, `{`, `}` and `<` outside code start JavaScript and JSX, so put
+them in backticks. For notes, use `<Callout>` (`type="info"`, `"warn"` or
+`"error"`) rather than GitHub's `> [!NOTE]`.
+
+`pnpm build` exports the static site to `docs/out`. The site is hosted on
+Vercel at [mkdp.sammaji.com](https://mkdp.sammaji.com), from the `docs/`
+directory.
+
+## Checks
+
+Run these before opening a pull request:
+
+```sh
+cargo fmt --check
+cargo clippy --all-targets
+
+cd app
+pnpm typecheck
+pnpm build
+```
+
+and the tests, see [Testing](./testing.mdx).
+
+## Debugging
+
+Start the editor with debug logging:
+
+```sh
+NVIM_MKDP_LOG_LEVEL=debug NVIM_MKDP_LOG_FILE=/tmp/mkdp.log nvim examples/features.md
+```
+
+and follow the log with `tail -f /tmp/mkdp.log`. Without these variables, the
+log is `mkdp-nvim-<uid>.log` or `mkdp-nvim-<uid>.1.log`, whichever is newer
+(`mkdp-nvim.log` on Windows), in the system temp directory, and debug logging
+without `NVIM_MKDP_LOG_FILE` writes a new
+`mkdp-nvim-<uid>.debug-<time>-<pid>.log` for each session. The page logs to
+the browser console.
+
+The server talks to the editor over stdout, so never print to stdout or
+stderr from it; use the `info!`, `debug!` and `error!` macros from
+`src/logger.rs`.
+
+## Project conventions
+
+- Tests live in their own files: `src/<module>_test.rs` next to the module,
+  `app/test/`, `e2e/tests/`. Application files only include them with
+  `#[cfg(test)] #[path = "<module>_test.rs"] mod tests;`.
+- Comments explain why, not what.
+- Options are `g:mkdp_*` variables, read by the server with `get_var` when
+  they are used, so they can change while the editor runs.
