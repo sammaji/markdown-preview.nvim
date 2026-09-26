@@ -380,8 +380,9 @@ impl App {
             }
         }
         if truthy(&editor.get_var("mkdp_echo_preview_url").await) {
-            editor.call_detached("mkdp#util#echo_url", vec![url.into()]);
+            editor.call_detached("mkdp#util#echo_url", vec![url.clone().into()]);
         }
+        editor.call_detached("mkdp#util#call_hook", vec!["on_start".into(), url.into()]);
     }
 }
 

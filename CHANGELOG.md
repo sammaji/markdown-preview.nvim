@@ -29,6 +29,7 @@
   ([iamcco#55](https://github.com/iamcco/markdown-preview.nvim/issues/55),
   [iamcco#639](https://github.com/iamcco/markdown-preview.nvim/issues/639),
   [iamcco#517](https://github.com/iamcco/markdown-preview.nvim/issues/517)).
+- `g:mkdp_on_start` (called with the preview URL) and `g:mkdp_on_stop` hooks.
 - Pre-built binaries for Linux arm64 and FreeBSD x64
   ([iamcco#287](https://github.com/iamcco/markdown-preview.nvim/issues/287),
   [iamcco#321](https://github.com/iamcco/markdown-preview.nvim/issues/321)).
