@@ -6,6 +6,20 @@
 - The documentation is now a [Fumadocs](https://fumadocs.dev) site,
   [mkdp.sammaji.com](https://mkdp.sammaji.com).
 
+#### Added
+- `g:mkdp_browser` can be a list, run as a command with the URL appended, e.g.
+  `{ "firefox", "-P", "work" }`
+  ([iamcco#55](https://github.com/iamcco/markdown-preview.nvim/issues/55),
+  [iamcco#639](https://github.com/iamcco/markdown-preview.nvim/issues/639),
+  [iamcco#517](https://github.com/iamcco/markdown-preview.nvim/issues/517)).
+
+#### Fixed
+- WSL support: the browser is opened with `wslview`, then `cmd.exe`, then `xdg-open`,
+  whichever exists, and a `g:mkdp_browser` Linux browser runs directly
+  ([iamcco#710](https://github.com/iamcco/markdown-preview.nvim/issues/710),
+  [iamcco#741](https://github.com/iamcco/markdown-preview.nvim/issues/741)).
+  When nothing can open it, the error shows the URL.
+
 ## v0.1.1
 
 #### Added

@@ -1,6 +1,3 @@
-//! HTTP + socket.io server that serves the preview page and pushes buffer
-//! content to it.
-
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
@@ -323,18 +320,9 @@ impl App {
             info!(LOG, "open page [{browserfunc}]: {url}");
             editor.call_detached(&browserfunc, vec![url.clone().into()]);
         } else {
-            let browser = var_string(editor.get_var("mkdp_browser").await);
-            info!(
-                LOG,
-                "open page [{}]: {url}",
-                if browser.is_empty() {
-                    "default"
-                } else {
-                    &browser
-                }
-            );
-            let browser = (!browser.is_empty()).then_some(browser.as_str());
-            if let Err(msg) = opener::open(&url, browser) {
+            let browser = opener::Browser::from_var(&editor.get_var("mkdp_browser").await);
+            info!(LOG, "open page [{browser:?}]: {url}");
+            if let Err(msg) = opener::open(&url, &browser) {
                 error!(LOG, "{msg}");
                 editor.echo_error(&msg);
             }
