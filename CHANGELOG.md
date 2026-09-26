@@ -36,6 +36,8 @@
 - GitHub alerts: `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]` and
   `[!CAUTION]` ([iamcco#663](https://github.com/iamcco/markdown-preview.nvim/issues/663),
   [iamcco#632](https://github.com/iamcco/markdown-preview.nvim/issues/632)).
+- `preview_options.front_matter = "panel"` shows YAML front matter in a
+  collapsible panel ([iamcco#521](https://github.com/iamcco/markdown-preview.nvim/issues/521)).
 - Pre-built binaries for Linux arm64 and FreeBSD x64
   ([iamcco#287](https://github.com/iamcco/markdown-preview.nvim/issues/287),
   [iamcco#321](https://github.com/iamcco/markdown-preview.nvim/issues/321)).

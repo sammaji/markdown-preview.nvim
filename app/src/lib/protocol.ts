@@ -12,6 +12,7 @@ export interface PreviewOptions {
   maid?: Record<string, unknown>;
   disable_sync_scroll?: number | boolean;
   sync_scroll_type?: "middle" | "top" | "relative";
+  front_matter?: "hide" | "panel" | "raw";
   hide_yaml_meta?: number;
   sequence_diagrams?: Record<string, unknown>;
   flowchart_diagrams?: Record<string, unknown>;

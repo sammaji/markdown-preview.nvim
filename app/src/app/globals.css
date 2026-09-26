@@ -228,3 +228,25 @@ body {
 .dark .markdown-alert-caution {
   --alert-color: #f85149;
 }
+
+/* g:mkdp_preview_options.front_matter = "panel" */
+.front-matter {
+  margin-bottom: 16px;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.front-matter > summary {
+  color: var(--muted-foreground);
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.front-matter[open] > summary {
+  margin-bottom: 8px;
+}
+
+.front-matter pre {
+  margin: 0;
+}
