@@ -11,7 +11,7 @@ use crate::{debug, error, info};
 const LOG: &str = "editor";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Kind {
+pub enum Kind {
     Nvim,
     Vim,
 }
@@ -44,24 +44,32 @@ impl Editor {
         } else {
             Kind::Nvim
         };
-        let editor = Editor(Arc::new(Inner {
-            kind,
-            writer: Mutex::new(Box::new(io::stdout())),
-            pending: Mutex::new(HashMap::new()),
-            next_id: AtomicI64::new(1),
-        }));
+        let editor = Editor::new(kind, Box::new(io::stdout()));
         let (tx, rx) = mpsc::unbounded_channel();
         let reader = editor.clone();
         std::thread::spawn(move || {
-            let stdin = BufReader::new(io::stdin().lock());
-            match kind {
-                Kind::Nvim => reader.read_msgpack(stdin, tx),
-                Kind::Vim => reader.read_json(stdin, tx),
-            }
+            reader.read(BufReader::new(io::stdin().lock()), tx);
             info!(LOG, "stdin closed, exiting");
             std::process::exit(0);
         });
         (editor, rx)
+    }
+
+    pub fn new(kind: Kind, writer: Box<dyn Write + Send>) -> Editor {
+        Editor(Arc::new(Inner {
+            kind,
+            writer: Mutex::new(writer),
+            pending: Mutex::new(HashMap::new()),
+            next_id: AtomicI64::new(1),
+        }))
+    }
+
+    /// Reads messages from the editor until `input` ends.
+    pub fn read(&self, input: impl BufRead, tx: mpsc::UnboundedSender<Incoming>) {
+        match self.0.kind {
+            Kind::Nvim => self.read_msgpack(input, tx),
+            Kind::Vim => self.read_json(input, tx),
+        }
     }
 
     fn read_msgpack(&self, mut stdin: impl Read, tx: mpsc::UnboundedSender<Incoming>) {
@@ -307,3 +315,7 @@ fn to_msgpack(value: Value) -> rmpv::Value {
         ),
     }
 }
+
+#[cfg(test)]
+#[path = "editor_test.rs"]
+pub mod tests;

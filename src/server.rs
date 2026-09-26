@@ -71,18 +71,8 @@ pub async fn run(editor: Editor, mut incoming: mpsc::UnboundedReceiver<Incoming>
     let port = listener.local_addr().map(|a| a.port()).unwrap_or_default();
     info!(LOG, "server run: {port}");
 
-    let app = Arc::new(App {
-        editor: editor.clone(),
-        clients: Mutex::new(HashMap::new()),
-        next_client_id: AtomicU64::new(1),
-        open_to_the_world,
-        port,
-    });
-
-    let router = Router::new()
-        .route("/ws", get(websocket))
-        .fallback(route)
-        .with_state(app.clone());
+    let app = App::new(editor.clone(), open_to_the_world, port);
+    let router = router(app.clone());
     tokio::spawn(async move {
         if let Err(err) = axum::serve(listener, router).await {
             error!(LOG, "http server error: {err}");
@@ -142,7 +132,24 @@ async fn bind(open_to_the_world: bool, preferred: Option<u16>) -> std::io::Resul
     TcpListener::bind(SocketAddr::new(host, 0)).await
 }
 
+fn router(app: Arc<App>) -> Router {
+    Router::new()
+        .route("/ws", get(websocket))
+        .fallback(route)
+        .with_state(app)
+}
+
 impl App {
+    fn new(editor: Editor, open_to_the_world: bool, port: u16) -> Arc<App> {
+        Arc::new(App {
+            editor,
+            clients: Mutex::new(HashMap::new()),
+            next_client_id: AtomicU64::new(1),
+            open_to_the_world,
+            port,
+        })
+    }
+
     async fn process_notifications(
         self: Arc<Self>,
         mut rx: mpsc::UnboundedReceiver<(String, Value)>,
@@ -522,3 +529,7 @@ fn local_ip() -> Option<String> {
     let ip = socket.local_addr().ok()?.ip();
     (!ip.is_loopback() && !ip.is_unspecified()).then(|| ip.to_string())
 }
+
+#[cfg(test)]
+#[path = "server_test.rs"]
+mod tests;
