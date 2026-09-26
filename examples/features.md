@@ -1,6 +1,6 @@
 ---
 title: markdown-preview.nvim feature tour
-description: This front matter is hidden in the preview (preview option hide_yaml_meta).
+description: This front matter is hidden in the preview; set the preview option front_matter to "panel" to show it in a collapsed panel.
 ---
 
 # Feature tour
@@ -24,6 +24,23 @@ Typographer: "smart quotes", 'single quotes', en -- and em --- dashes, (c) (tm) 
 > > can be nested.
 
 Headings get anchor links: hover a heading and click the link icon on its left.
+
+## GitHub alerts
+
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
 
 ## Lists
 
@@ -147,6 +164,24 @@ gantt
   Release v0.1.0  :active, 2026-09-15, 3d
 ```
 
+Dense graphs can use the ELK layout, per diagram as here, or for every diagram
+with the preview option `maid = { layout = "elk" }`:
+
+```mermaid
+---
+config:
+  layout: elk
+---
+flowchart LR
+  buffer[Buffer] --> render[markdown-it]
+  render --> katex[KaTeX] & diagrams[Diagrams] & hljs[highlight.js]
+  katex & diagrams & hljs --> page[ELK layout]
+```
+
+Hover a diagram and click the button in its corner to open it full screen: zoom
+with the wheel or `+`/`-`, drag to pan, `0` to fit, download it as SVG, and
+`Esc` to close. While you type, a broken diagram keeps its last good drawing.
+
 Fences without a language are drawn as mermaid too when they start with
 `graph`, `gantt`, `sequenceDiagram` or `erDiagram`:
 
@@ -235,5 +270,6 @@ Alice --> Bob : hi
 <summary>Raw HTML is allowed (click to expand)</summary>
 
 Markdown still works inside **HTML blocks** when separated by blank lines.
+Opened or closed, a block keeps its state while you type.
 
 </details>
