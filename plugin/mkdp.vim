@@ -85,6 +85,11 @@ if !exists('g:mkdp_highlight_css')
   let g:mkdp_highlight_css = ''
 endif
 
+" shadcn/ui theme (globals.css) absolute path
+if !exists('g:mkdp_theme_css')
+  let g:mkdp_theme_css = ''
+endif
+
 if !exists('g:mkdp_port')
   let g:mkdp_port = ''
 endif

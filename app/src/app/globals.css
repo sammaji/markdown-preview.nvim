@@ -1,19 +1,66 @@
-:root {
-  color-scheme: light;
-  --foreground-color: #24292e;
-  --muted-color: #6a737d;
-  --background-color: #f6f8fa;
-  --border-color: #d1d5da;
-  --secondary-background-color: #f6f8fa;
-}
+@layer mkdp-theme {
+  :root {
+    color-scheme: light;
+    --radius: 0.625rem;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.646 0.222 41.116);
+    --chart-2: oklch(0.6 0.118 184.704);
+    --chart-3: oklch(0.398 0.07 227.392);
+    --chart-4: oklch(0.828 0.189 84.429);
+    --chart-5: oklch(0.769 0.188 70.08);
+    --font-sans:
+      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-mono:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+  }
 
-[data-theme="dark"] {
-  color-scheme: dark;
-  --foreground-color: #c9d1d9;
-  --muted-color: #8b949e;
-  --background-color: #0d1117;
-  --border-color: #30363d;
-  --secondary-background-color: #181a1b;
+  .dark {
+    color-scheme: dark;
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
+  }
 }
 
 html,
@@ -24,15 +71,18 @@ main {
 }
 
 body {
-  background-color: var(--secondary-background-color);
-  font-family: "Helvetica Neue", Helvetica, "Segoe UI", Arial, freesans, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol";
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tracking-normal, normal);
 }
 
 #page-ctn {
   margin: 0 auto;
   max-width: 900px;
-  color: var(--foreground-color);
+  color: var(--card-foreground);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm, none);
 }
 
 #page-header {
@@ -40,11 +90,11 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 8px;
-  background-color: var(--background-color);
-  border: 1px solid var(--border-color);
+  background-color: var(--card);
+  border: 1px solid var(--border);
   border-bottom: 0;
-  border-top-left-radius: 3px;
-  border-top-right-radius: 3px;
+  border-top-left-radius: var(--radius);
+  border-top-right-radius: var(--radius);
   line-height: 24px;
 }
 
@@ -72,7 +122,7 @@ body {
 }
 
 .status {
-  color: var(--muted-color);
+  color: var(--muted-foreground);
   font-size: 12px;
 }
 
@@ -83,32 +133,33 @@ body {
   width: 28px;
   height: 28px;
   padding: 0;
-  color: var(--muted-color);
+  color: var(--muted-foreground);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: calc(var(--radius) - 2px);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-#page-header:hover .theme-toggle,
-.theme-toggle:focus-visible {
-  opacity: 1;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
 }
 
 .theme-toggle:hover {
-  color: var(--foreground-color);
-  border-color: var(--border-color);
+  color: var(--accent-foreground);
+  background: var(--accent);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
 }
 
 .diagram-error {
-  color: #cb2431;
+  color: var(--destructive);
   white-space: pre-wrap;
 }
 
 .notice {
   padding: 32px;
-  color: var(--muted-color);
+  color: var(--muted-foreground);
   text-align: center;
 }
