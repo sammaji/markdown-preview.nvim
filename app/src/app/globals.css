@@ -148,7 +148,9 @@ body {
   background: var(--accent);
 }
 
-.theme-toggle:focus-visible {
+.theme-toggle:focus-visible,
+.diagram-open:focus-visible,
+.diagram-viewer-toolbar button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 1px;
 }
@@ -251,6 +253,124 @@ body {
   margin: 0;
 }
 
+.mermaid {
+  position: relative;
+}
+
+.diagram-open {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  padding: 4px;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.mermaid:hover .diagram-open,
+.diagram-open:focus-visible {
+  opacity: 1;
+}
+
+.diagram-open svg {
+  fill: currentColor;
+}
+
 .diagram-stale > svg {
   opacity: 0.6;
+}
+
+/* flowchart.js, js-sequence-diagrams and Graphviz draw black on white. Their
+   default black and white take the theme's colors, as mermaid's do; colors
+   set in a diagram itself are kept */
+:is(.flowchart, .sequence-diagrams, .dot)
+  svg
+  :is([stroke="#000000"], [stroke="#000"], [stroke="black"]) {
+  stroke: var(--muted-foreground);
+}
+
+:is(.flowchart, .sequence-diagrams, .dot)
+  svg
+  :is([fill="#000000"], [fill="#000"], [fill="black"]),
+:is(.flowchart, .sequence-diagrams, .dot) svg marker :not([fill]) {
+  fill: var(--muted-foreground);
+}
+
+:is(.flowchart, .sequence-diagrams, .dot)
+  svg
+  :is([fill="#ffffff"], [fill="#fff"], [fill="white"]) {
+  fill: var(--secondary);
+}
+
+:is(.flowchart, .sequence-diagrams, .dot)
+  svg
+  text:is(:not([fill]), [fill="#000000"], [fill="#000"], [fill="black"]) {
+  fill: var(--foreground);
+}
+
+/* Graphviz's white page behind the graph */
+.dot svg g.graph > polygon[fill="white"] {
+  fill: transparent;
+}
+
+.diagram-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  color: var(--foreground);
+  background: var(--background);
+  outline: none;
+}
+
+.diagram-viewer-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diagram-viewer-toolbar button {
+  display: inline-flex;
+  padding: 6px;
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+}
+
+.diagram-viewer-toolbar button:hover {
+  color: var(--accent-foreground);
+  background: var(--accent);
+}
+
+.diagram-viewer-toolbar svg {
+  fill: currentColor;
+}
+
+.diagram-viewer-stage {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.diagram-viewer-stage.dragging {
+  cursor: grabbing;
+}
+
+.diagram-viewer-stage > svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
 }
