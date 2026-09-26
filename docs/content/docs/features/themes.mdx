@@ -1,0 +1,159 @@
+---
+title: Themes and custom CSS
+description: Light and dark, shadcn/ui and tweakcn themes, fonts, and replacing the built-in styles.
+---
+
+## Light and dark
+
+The page follows your system's light or dark preference. To choose one:
+
+```lua
+opts = { theme = "dark" } -- or "light"
+```
+
+Click the sun or moon button in the page header to switch for as long
+as the page is open. Diagrams are redrawn in the new theme.
+
+## shadcn/ui and tweakcn themes
+
+The page is styled with [shadcn/ui](https://ui.shadcn.com) theme variables, so
+any shadcn theme changes its colors, fonts and corner radius. To use one:
+
+1. Pick a theme on [ui.shadcn.com/themes](https://ui.shadcn.com/themes), or
+   make your own on [tweakcn.com](https://tweakcn.com).
+2. Copy its CSS (the `globals.css`, or the "Copy code" output) into a file,
+   e.g. `~/.config/nvim/mkdp-theme.css`.
+3. Point the plugin at it with an absolute path:
+
+```lua
+opts = { theme_css = vim.fn.expand("~/.config/nvim/mkdp-theme.css") }
+```
+
+```vim
+let g:mkdp_theme_css = expand('~/.config/nvim/mkdp-theme.css')
+```
+
+The file is read on every page load, so reload the page to see your changes.
+
+Paste the whole file as it is:
+
+- `:root { ... }` holds the light colors, and `.dark { ... }` the dark ones.
+- The Tailwind parts, such as `@import "tailwindcss"`, `@theme inline`,
+  `@custom-variant` and `@apply`, are ignored.
+- Tailwind v3 themes, whose colors are bare HSL numbers like
+  `--primary: 222.2 47.4% 11.2%` inside `@layer base`, work too.
+- The theme only needs the variables it changes; the others keep the
+  defaults, which are shadcn's "neutral" theme.
+
+A theme looks like this:
+
+```css
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.98 0.01 90);
+  --foreground: oklch(0.2 0.02 60);
+  --card: oklch(1 0 0);
+  --primary: oklch(0.55 0.15 40);
+  --muted: oklch(0.95 0.01 90);
+  --border: oklch(0.9 0.01 90);
+  --font-sans: "Inter", sans-serif;
+}
+
+.dark {
+  --background: oklch(0.18 0.01 60);
+  --card: oklch(0.22 0.01 60);
+  --primary: oklch(0.7 0.14 40);
+  /* ... */
+}
+```
+
+## Fonts
+
+A theme names its fonts in `--font-sans` (text) and `--font-mono` (code).
+
+**Installed fonts** just work: if the font is installed on your system, the
+browser uses it.
+
+**Fonts from the internet**: `@import` them at the very top of the theme
+file. tweakcn and shadcn don't add this line for you:
+
+```css
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono&display=swap");
+
+:root {
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+```
+
+**Font files**: put them in the theme's folder, or a folder below it, and load
+them with a relative `@font-face` URL. This works offline:
+
+```text
+~/.config/nvim/mkdp-theme.css
+~/.config/nvim/fonts/MyFont-Regular.woff2
+~/.config/nvim/fonts/MyFont-Bold.woff2
+```
+
+```css
+@font-face {
+  font-family: "My Font";
+  src: url("fonts/MyFont-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "My Font";
+  font-weight: 700;
+  src: url("fonts/MyFont-Bold.woff2") format("woff2");
+}
+
+:root {
+  --font-sans: "My Font", sans-serif;
+}
+```
+
+Only font files (`.woff2`, `.woff`, `.ttf`, `.otf`) are served from the theme's
+folder, and nothing outside it.
+
+## Replacing the built-in styles
+
+For full control, replace the page's stylesheets:
+
+| Option          | Replaces                                                                              |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `markdown_css`  | [`markdown.css`](https://github.com/sammaji/markdown-preview.nvim/blob/master/app/public/_static/markdown.css): the rendered document         |
+| `highlight_css` | [`highlight.css`](https://github.com/sammaji/markdown-preview.nvim/blob/master/app/public/_static/highlight.css): the colors of code blocks  |
+
+```lua
+opts = {
+  markdown_css = vim.fn.expand("~/.config/nvim/markdown.css"),
+  highlight_css = vim.fn.expand("~/.config/nvim/highlight.css"),
+}
+```
+
+Start from a copy of the built-in file. It styles `.markdown-body` using the
+theme variables below, so a replacement that uses them still follows the
+theme and dark mode. Any [highlight.js theme](https://highlightjs.org/examples)
+works as `highlight_css`.
+
+In the dark theme, `<html>` has the class `dark` and the attribute
+`data-theme="dark"`; in the light theme, `data-theme="light"`.
+
+## Theme variables
+
+The page uses these variables. Themes may define more (`--chart-1`,
+`--sidebar`, ...); the page ignores them.
+
+| Variable                                | Used for                                              |
+| --------------------------------------- | ----------------------------------------------------- |
+| `--background`, `--foreground`          | the page behind the document                          |
+| `--card`, `--card-foreground`           | the document and its header                           |
+| `--primary`                             | links, checked task boxes                             |
+| `--muted`, `--muted-foreground`         | code, table headers, quotes, secondary text           |
+| `--accent`, `--accent-foreground`       | hovered buttons                                       |
+| `--border`                              | borders, rules, table lines                           |
+| `--ring`                                | the keyboard focus outline                            |
+| `--destructive`                         | diagram errors                                        |
+| `--radius`                              | corner radius of the document, code blocks and buttons |
+| `--font-sans`, `--font-mono`            | text and code fonts                                   |
+| `--shadow-sm`, `--tracking-normal`      | the document's shadow and letter spacing (tweakcn)    |

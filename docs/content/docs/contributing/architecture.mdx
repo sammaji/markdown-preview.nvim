@@ -1,0 +1,175 @@
+---
+title: Architecture
+description: How the editor, the server and the page fit together.
+---
+
+```text
+┌──────────────┐  stdio   ┌──────────────────┐  HTTP + WebSocket  ┌───────────────┐
+│ Neovim / Vim │ ───────▶ │  server (Rust)   │ ─────────────────▶ │ preview page  │
+│  plugin/     │ ◀─────── │  src/            │ ◀───────────────── │ (browser)     │
+│  autoload/   │          │  page embedded   │                    │ app/          │
+└──────────────┘          └──────────────────┘                    └───────────────┘
+```
+
+Three parts, in three languages:
+
+- **The plugin** (Vim script, and Lua for `setup()`) defines the options and
+  commands, starts the server as a job, and tells it when a buffer changes.
+- **The server** (Rust, one binary) serves the page, asks the editor for the
+  buffer, and pushes it to the page over a WebSocket. It has no markdown
+  renderer.
+- **The page** (a Next.js app, exported as static files) renders the markdown
+  in the browser, draws the diagrams and scrolls along with the cursor.
+
+## Repository layout
+
+| Path                         | What it is                                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| `plugin/mkdp.vim`            | Option defaults; runs `mkdp#init()`.                                                               |
+| `autoload/mkdp.vim`          | Commands, `<Plug>` mappings and the autocommands that depend on options.                            |
+| `autoload/mkdp/util.vim`     | Opening and stopping previews, finding and downloading the server binary, `preview_data()`, hooks. |
+| `autoload/mkdp/rpc.vim`      | Starting the server job and sending it notifications.                                              |
+| `autoload/mkdp/autocmd.vim`  | Per-buffer autocommands: refresh on edits and cursor moves, close on leaving.                      |
+| `autoload/nvim/api.vim`      | The part of the Neovim API the server uses, emulated on Vim channels.                              |
+| `autoload/health/mkdp.vim`   | `:checkhealth mkdp`.                                                                               |
+| `lua/markdown-preview/`      | `setup()`: validates Lua options and sets the `g:mkdp_*` variables.                                |
+| `build.lua`                  | lazy.nvim's build hook: downloads the binary.                                                      |
+| `app/install.sh`, `app/install.cmd` | Download the release binary for the platform into `app/bin/`.                               |
+| `src/main.rs`                | Entry point: logging, the Tokio runtime, `--version`.                                               |
+| `src/editor.rs`              | The editor connection: msgpack-rpc (Neovim) or JSON channel (Vim), requests and notifications.      |
+| `src/server.rs`              | The HTTP server: routes, WebSocket, pages, local images, themes, security, opening the browser.    |
+| `src/opener.rs`              | Opening a URL in a browser on each system, with fallbacks (WSL).                                    |
+| `src/logger.rs`              | The log file.                                                                                      |
+| `build.rs`                   | Builds `app/` into `app/out` before the server is compiled.                                        |
+| `app/src/components/`        | The page's React components: `preview.tsx` and the theme toggle.                                    |
+| `app/src/lib/markdown/`      | The markdown-it renderer and its plugins (alerts, images, front matter, fences, KaTeX, PlantUML).    |
+| `app/src/lib/`               | Diagrams, the diagram viewer, the WebSocket connection, sync scroll, the message types.             |
+| `app/public/_static/`        | Files served as they are: `markdown.css`, `highlight.css`, js-sequence-diagrams.                    |
+| `examples/features.md`           | A document that uses every feature.                                                                |
+
+## A preview, step by step
+
+1. `:MarkdownPreview` runs `mkdp#util#open_preview_page()`. If no server
+   binary matches the plugin version, it downloads one first
+   (`s:install_server`).
+2. `mkdp#rpc#start_server()` starts the binary as a job: an RPC job in Neovim,
+   a JSON channel in Vim, which also sets `VIM_NODE_RPC=1` so the binary knows
+   which protocol to speak.
+3. The server binds `g:mkdp_port` (or the next free port), sets
+   `g:mkdp_node_channel_id` in the editor to say it is running, and calls
+   `mkdp#util#open_browser()`.
+4. The plugin sends the `open_browser` notification. The server builds the URL
+   `http://localhost:<port>/page/<bufnr>` and opens it with `g:mkdp_browserfunc`,
+   `g:mkdp_browser` or the system opener, then calls `g:mkdp_on_start`.
+   Later previews in the same editor skip to this step.
+5. The page connects to `/ws?bufnr=<bufnr>`.
+6. On edits and cursor moves, the buffer's autocommands send
+   `refresh_content`. The server calls `mkdp#util#preview_data(bufnr)`, which
+   returns the lines, cursor, window size and options in one round trip, and
+   sends them to the page.
+7. The page renders the markdown, draws the diagrams, and scrolls to the
+   cursor.
+8. `:MarkdownPreviewStop` sends the `close_all_pages` request. The server
+   tells every page (`close_page`) and answers once they have closed; then the
+   plugin stops the job and calls `g:mkdp_on_stop`.
+
+Only one server runs per editor; every preview of that editor shares it.
+
+## The editor protocol
+
+The server talks to the editor over its own stdin and stdout, so it must never
+print anything else there. It uses a small part of the Neovim API:
+`nvim_get_api_info`, `nvim_get_var`, `nvim_set_var` and
+`nvim_call_function`. In
+Vim, `autoload/nvim/api.vim` implements these on top of a JSON channel, so the
+same server works with both editors.
+
+The editor sends three notifications, each with `{ "bufnr": n }`, and one
+request, `close_all_pages`, when the preview stops:
+
+| Notification      | Sent when                                         |
+| ----------------- | ------------------------------------------------- |
+| `open_browser`    | `:MarkdownPreview`                                |
+| `refresh_content` | an edit or cursor move in a previewed buffer      |
+| `close_page`      | leaving a buffer with `g:mkdp_auto_close`         |
+
+Bursts of identical `refresh_content` notifications, as when holding `j`, are
+merged into one.
+
+The server reads options with `get_var` when it uses them, not at startup, so
+changing a `g:mkdp_*` variable takes effect on the next preview.
+
+## The WebSocket protocol
+
+Defined in [`app/src/lib/protocol.ts`](https://github.com/sammaji/markdown-preview.nvim/blob/master/app/src/lib/protocol.ts). The
+server sends:
+
+| Message           | Contents                                                                |
+| ----------------- | ----------------------------------------------------------------------- |
+| `refresh_content` | `PreviewData`: lines, cursor, window size, options, title, theme        |
+| `close_page`      | the preview stopped, or the buffer was left                             |
+| `change_bufnr`    | with `g:mkdp_combine_preview`: show another buffer in this page         |
+
+The page sends nothing; it reconnects with backoff if the connection drops.
+
+## HTTP routes
+
+| Route                    | Serves                                                                   |
+| ------------------------ | ------------------------------------------------------------------------ |
+| `/`, `/page/<bufnr>`     | the page (`index.html`)                                                  |
+| `/<bufnr>`               | a redirect to `/page/<bufnr>`, for old links                             |
+| `/ws?bufnr=<n>`          | the WebSocket                                                            |
+| `/_static/markdown.css`, `/_static/highlight.css` | `g:mkdp_markdown_css` / `g:mkdp_highlight_css`, or the built-in file |
+| `/_theme/theme.css`      | `g:mkdp_theme_css`, cleaned up for the browser, or an empty file         |
+| `/_theme/<path>`         | font files from the theme's folder                                       |
+| `/_assets/<path>`        | an image, audio or video file, resolved against the buffer's directory   |
+| anything else            | the embedded file from `app/out`, or 404                                 |
+
+## Security
+
+The preview shows your files, and browsers let any web site talk to
+`localhost`, so:
+
+- The server listens on `127.0.0.1` unless `g:mkdp_open_to_the_world` is set.
+- The WebSocket only accepts connections whose `Origin` is the page itself, so
+  another web site can't read the buffer.
+- `/_assets/` only serves image, audio and video files, and `/_theme/`
+  only font files from the theme's folder.
+- With `g:mkdp_open_to_the_world`, the server makes a random 128-bit token.
+  Pages, local files, the theme and the WebSocket need it, from the `?token=`
+  in the URL or the cookie the page sets. The page's own scripts and styles
+  don't.
+
+## The page
+
+The page is a single client-side React component,
+[`preview.tsx`](https://github.com/sammaji/markdown-preview.nvim/blob/master/app/src/components/preview.tsx). For each
+`refresh_content`, it:
+
+1. renders the lines with markdown-it (`app/src/lib/markdown/`). Each block
+   gets a `data-source-line` attribute, and code fences for diagrams become
+   placeholders.
+2. replaces the document, keeping the state of open `<details>`
+   (`details.ts`).
+3. draws the diagrams (`diagrams.ts`). Each library is loaded only when the
+   document has a diagram of its kind, and a broken Mermaid diagram keeps its
+   last good drawing.
+4. scrolls to the cursor (`scroll.ts`), interpolating between the nearest
+   elements with a `data-source-line`.
+
+Styles come in layers: `app/src/app/globals.css` (the page and the default
+shadcn/ui theme variables, in a CSS layer so any theme overrides them), then
+`markdown.css` and `highlight.css`, then the user's theme.
+
+## Builds and releases
+
+`cargo build` runs `build.rs`, which builds the page with `pnpm build` into
+`app/out`. `src/server.rs` embeds `app/out` with `include_dir!`, so the binary
+contains everything.
+
+The release workflow (`.github/workflows/release.yml`) runs on a `v*` tag. It
+builds the binary for each platform (FreeBSD through `cross`), names it
+`markdown-preview-<platform>`, and publishes the archives as a GitHub release.
+The plugin picks the archive with `mkdp#util#get_platform()`, and
+`install.sh`/`install.cmd` download it into `app/bin/`. `distribution.spec.ts`
+checks that these names agree.

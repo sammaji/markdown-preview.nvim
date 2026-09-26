@@ -1,0 +1,16 @@
+{
+  "title": "Documentation",
+  "pages": [
+    "---Getting started---",
+    "index",
+    "quickstart",
+    "installation",
+    "---Features---",
+    "...features",
+    "---Reference---",
+    "configuration",
+    "faq",
+    "---Contributing---",
+    "...contributing"
+  ]
+}

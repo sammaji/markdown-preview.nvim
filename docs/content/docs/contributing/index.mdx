@@ -1,0 +1,63 @@
+---
+title: How to contribute
+description: Bug reports, pull requests and releasing.
+---
+
+Thanks for helping out! Bug reports, fixes, features and documentation are all
+welcome.
+
+- [Development setup](./development.mdx): build the plugin and run your checkout.
+- [Testing](./testing.mdx): the test suites and how to write tests.
+- [Architecture](./architecture.mdx): how the editor, the server and the page fit
+  together, and where to make a change.
+
+## Reporting a bug
+
+Open an [issue](https://github.com/sammaji/markdown-preview.nvim/issues) with:
+
+- your editor and its version (`nvim --version` or `vim --version`) and your
+  system
+- the output of `:checkhealth mkdp` (Neovim)
+- a small markdown file and the configuration that show the problem
+- the [log](../faq.mdx#where-is-the-log), ideally with
+  `NVIM_MKDP_LOG_LEVEL=debug`
+
+## Before you start
+
+For anything larger than a small fix, open an issue first so we can agree on
+the approach. [`UPSTREAM_ISSUES.md`](https://github.com/sammaji/markdown-preview.nvim/blob/master/UPSTREAM_ISSUES.md) triages the
+issues of the original plugin, and
+[`skip-test-case.md`](https://github.com/sammaji/markdown-preview.nvim/blob/master/skip-test-case.md) lists the known gaps in the
+tests; both are good places to find work.
+
+## Pull requests
+
+- Target the `master` branch.
+- Keep pull requests focused on one change.
+- Add or update tests: a fix comes with a test that fails without it, see
+  [Testing](./testing.mdx#writing-tests).
+- Run `./test.sh` and the [checks](./development.mdx#checks).
+- Describe what you changed and how you tested it.
+- Add an entry to [`CHANGELOG.md`](https://github.com/sammaji/markdown-preview.nvim/blob/master/CHANGELOG.md) under `Unreleased` for
+  user-facing changes.
+- Update the documentation for anything users see, see [Working on the
+  docs](./development.mdx#working-on-the-docs). New options go in
+  [the configuration reference](../configuration.mdx); a test checks that every
+  option is documented.
+
+## Releasing
+
+For maintainers:
+
+1. Bump `version` in `Cargo.toml` and rename `Unreleased` in `CHANGELOG.md` to
+   the new version.
+2. Run `./test.sh`, and the [manual checks](./testing.mdx#manual-checks).
+3. Commit and push to `master`.
+4. Run `./release.sh`. It tags the version from `Cargo.toml` and pushes the
+   tag, and the release workflow builds the binaries and publishes the GitHub
+   release.
+
+The plugin installs the release matching its `Cargo.toml` version, so the tag
+must exist before users update: lazy.nvim runs `build.lua` on update, other
+plugin managers run `mkdp#util#install_sync()` from their build hook, and
+`:MarkdownPreview` downloads the binary when it does not match the plugin.
