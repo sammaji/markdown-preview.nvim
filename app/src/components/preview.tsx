@@ -4,6 +4,7 @@ import type { MarkdownIt } from "markdown-it";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { connect } from "@/lib/connection";
+import { replaceKeepingDetails } from "@/lib/details";
 import { renderDiagrams, type Theme } from "@/lib/diagrams";
 import { createRenderer } from "@/lib/markdown";
 import type {
@@ -69,7 +70,7 @@ export function Preview() {
   const render = useCallback(async (theme: Theme) => {
     const body = bodyRef.current;
     if (!body || !md.current || source.current === undefined) return;
-    body.innerHTML = md.current.render(source.current);
+    replaceKeepingDetails(body, md.current.render(source.current));
     lastScroll.current?.();
     await renderDiagrams(body, options.current, theme);
     // diagrams change the height of the page
@@ -139,6 +140,7 @@ export function Preview() {
           // g:mkdp_combine_preview: show another buffer in this page
           window.history.replaceState(null, "", `/page/${message.bufnr}`);
           source.current = undefined;
+          bodyRef.current?.replaceChildren();
           setBufnr(message.bufnr);
           break;
       }
