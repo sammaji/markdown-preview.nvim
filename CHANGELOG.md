@@ -12,6 +12,7 @@
   the server could read was served, e.g. `/_local_image_/etc/passwd`, to anyone
   on the network with `g:mkdp_open_to_the_world`.
 
+
 #### Changed
 - The documentation is now a [Fumadocs](https://fumadocs.dev) site,
   [mkdp.sammaji.com](https://mkdp.sammaji.com).
@@ -66,6 +67,8 @@
   with the error above it, instead of flickering to an error while you type.
 - `<details>` sections keep their open or closed state while you type
   ([iamcco#600](https://github.com/iamcco/markdown-preview.nvim/issues/600)).
+- Sync scroll interpolated lines after the first element from the top of the
+  page.
 - Partial `g:mkdp_preview_options` keep the defaults of the keys they leave
   out.
 - A port taken on IPv6 (`[::1]`) is skipped. Before, the preview could bind
