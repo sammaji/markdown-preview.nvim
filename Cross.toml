@@ -1,0 +1,2 @@
+[build.env]
+passthrough = ["MKDP_SKIP_PAGE_BUILD"]
