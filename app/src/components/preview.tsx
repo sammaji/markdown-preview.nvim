@@ -21,12 +21,12 @@ interface Header {
 // how long to wait for more keystrokes before re-rendering
 const RENDER_DEBOUNCE_MS = 16;
 
-function bufnrFromUrl(): number {
+export function bufnrFromUrl(): number {
   return Number(window.location.pathname.match(/\/page\/(\d+)/)?.[1] ?? NaN);
 }
 
 // file name without directory and extension
-function displayName(path: string): string {
+export function displayName(path: string): string {
   const base = path.split(/[\\/]/).pop() ?? "";
   const dot = base.lastIndexOf(".");
   return dot > 0 ? base.slice(0, dot) : base;
