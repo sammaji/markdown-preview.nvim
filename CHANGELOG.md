@@ -87,6 +87,9 @@
   `setup()` after the plugin has loaded (`filetypes`, `auto_start`,
   `command_for_global`, `combine_preview_auto_refresh`) take effect too.
 
+#### Authors
+- [@sammaji](https://github.com/sammaji)
+
 ## v0.1.1
 
 #### Added
