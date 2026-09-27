@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -125,12 +125,21 @@ async fn bind(open_to_the_world: bool, preferred: Option<u16>) -> std::io::Resul
         8080 + (millis % 1000) as u16
     });
     for port in (0..PORT_ATTEMPTS).filter_map(|i| start.checked_add(i)) {
+        if ipv6_taken(port) {
+            info!(LOG, "port {port} unavailable: in use on IPv6");
+            continue;
+        }
         match TcpListener::bind(SocketAddr::new(host, port)).await {
             Ok(listener) => return Ok(listener),
             Err(err) => info!(LOG, "port {port} unavailable: {err}"),
         }
     }
     TcpListener::bind(SocketAddr::new(host, 0)).await
+}
+
+fn ipv6_taken(port: u16) -> bool {
+    let addr = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), port);
+    std::net::TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok()
 }
 
 fn router(app: Arc<App>) -> Router {
