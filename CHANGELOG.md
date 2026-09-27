@@ -46,6 +46,7 @@
 - The log file is per user (`mkdp-nvim-<uid>.log`), so a file another user
   left no longer breaks logging
   ([iamcco#737](https://github.com/iamcco/markdown-preview.nvim/issues/737)).
+- `g:mkdp_auto_close` works in Vim, where leaving a buffer unloads it.
 - `:MarkdownPreviewStop` sometimes left the page showing "Disconnected"
   instead of "Preview stopped".
 - 32-bit Linux no longer downloads the x86_64 binary; `install.sh` reports
