@@ -18,6 +18,14 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             name: markdown-preview-linux
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            name: markdown-preview-linux-arm64
+          # cross-compiled in cross's FreeBSD image, see Cross.toml
+          - os: ubuntu-latest
+            target: x86_64-unknown-freebsd
+            name: markdown-preview-freebsd
+            cross: true
           - os: macos-latest
             target: x86_64-apple-darwin
             name: markdown-preview-macos
@@ -28,6 +36,8 @@ jobs:
             target: x86_64-pc-windows-msvc
             name: markdown-preview-win
     runs-on: ${{ matrix.os }}
+    # a FreeBSD build failure must not hold back the release of the others
+    continue-on-error: ${{ matrix.cross == true }}
     steps:
       - uses: actions/checkout@v5
       # build.rs builds the preview page in app/
@@ -44,9 +54,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - if: matrix.target == 'x86_64-unknown-linux-musl'
+      - if: endsWith(matrix.target, '-linux-musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
-      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - if: ${{ !matrix.cross }}
+        run: cargo build --release --locked --target ${{ matrix.target }}
+      # the cross image has no Node.js, so build the page here and embed it
+      - if: matrix.cross
+        run: |
+          pnpm --dir app run build
+          cargo install cross --locked
+          MKDP_SKIP_PAGE_BUILD=1 cross build --release --locked --target ${{ matrix.target }}
       - name: package (unix)
         if: runner.os != 'Windows'
         run: |

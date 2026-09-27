@@ -12,6 +12,9 @@
   ([iamcco#55](https://github.com/iamcco/markdown-preview.nvim/issues/55),
   [iamcco#639](https://github.com/iamcco/markdown-preview.nvim/issues/639),
   [iamcco#517](https://github.com/iamcco/markdown-preview.nvim/issues/517)).
+- Pre-built binaries for Linux arm64 and FreeBSD x64
+  ([iamcco#287](https://github.com/iamcco/markdown-preview.nvim/issues/287),
+  [iamcco#321](https://github.com/iamcco/markdown-preview.nvim/issues/321)).
 
 #### Fixed
 - WSL support: the browser is opened with `wslview`, then `cmd.exe`, then `xdg-open`,
@@ -22,6 +25,8 @@
 - The log file is per user (`mkdp-nvim-<uid>.log`), so a file another user
   left no longer breaks logging
   ([iamcco#737](https://github.com/iamcco/markdown-preview.nvim/issues/737)).
+- 32-bit Linux no longer downloads the x86_64 binary; `install.sh` reports
+  an unsupported system and exits with an error.
 
 ## v0.1.1
 

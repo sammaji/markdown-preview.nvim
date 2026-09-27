@@ -80,7 +80,15 @@ function! mkdp#util#stop_preview() abort
   call mkdp#rpc#stop_server()
 endfunction
 
+" suffix of the released binary for this system, see .github/workflows/release.yml
 function! mkdp#util#get_platform() abort
+  if !exists('s:platform')
+    let s:platform = s:detect_platform()
+  endif
+  return s:platform
+endfunction
+
+function! s:detect_platform() abort
   if has('win32') || has('win64')
     return 'win'
   elseif has('mac') || has('macvim')
@@ -89,6 +97,13 @@ function! mkdp#util#get_platform() abort
     endif
     return 'macos'
   endif
+  let l:system = system('uname -sm')
+  if l:system =~? '^freebsd amd64'
+    return 'freebsd'
+  elseif l:system =~? '^linux \(aarch64\|arm64\)'
+    return 'linux-arm64'
+  endif
+  " also 32-bit and other Linux, for which install.sh has no binary
   return 'linux'
 endfunction
 

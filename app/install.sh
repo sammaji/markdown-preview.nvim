@@ -94,8 +94,12 @@ download() {
 arch=$(uname -sm)
 case "${arch}" in
   "Linux x86_64") download markdown-preview-linux.tar.gz ;;
-  "Linux i686") download markdown-preview-linux.tar.gz ;;
+  "Linux aarch64" | "Linux arm64") download markdown-preview-linux-arm64.tar.gz ;;
   "Darwin x86_64") download markdown-preview-macos.tar.gz ;;
   "Darwin arm64") download markdown-preview-macos-arm64.tar.gz ;;
-  *) info "No pre-built binary available for ${arch}.";;
+  "FreeBSD amd64") download markdown-preview-freebsd.tar.gz ;;
+  *)
+    error "No pre-built binary available for ${arch}. Build it with \`cargo build --release\` in the plugin directory."
+    exit 1
+    ;;
 esac
