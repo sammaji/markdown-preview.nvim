@@ -287,6 +287,20 @@ function documentedOptions() {
   };
 }
 
+test.describe("examples", () => {
+  test("the files examples/features.md shows are in the repository", () => {
+    const tracked = new Set(execFileSync("git", ["ls-files", "examples"], { cwd: REPO, encoding: "utf8" }).split("\n"));
+    const example = readFileSync(join(REPO, "examples/features.md"), "utf8");
+    const srcs = [...example.matchAll(/!\[[^\]]*\]\(([^)\s]+)|<img\s[^>]*src="([^"]+)"/g)]
+      .map((m) => m[1] ?? m[2])
+      .filter((src) => !/^[a-z]+:|^\/\//.test(src));
+    expect(srcs.length).toBeGreaterThan(0);
+    for (const src of srcs) {
+      expect(tracked, `${src}, e.g. ignored by .gitignore`).toContain(join("examples", src));
+    }
+  });
+});
+
 test.describe("docs", () => {
   test("every mkdp#util# function the docs mention exists", () => {
     const util = read("autoload/mkdp/util.vim");
