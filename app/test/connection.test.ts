@@ -35,11 +35,11 @@ class FakeWebSocket {
 const sockets = () => FakeWebSocket.instances;
 const latest = () => sockets()[sockets().length - 1];
 
-function setup(protocol = "http:", host = "localhost:8090", bufnr = 3) {
+function setup(protocol = "http:", host = "localhost:8090", page = "/page/3") {
   vi.stubGlobal("window", { location: { protocol, host } });
   const onMessage = vi.fn<(message: ServerMessage) => void>();
   const onStatus = vi.fn<(connected: boolean) => void>();
-  const dispose = connect(bufnr, onMessage, onStatus);
+  const dispose = connect(page, onMessage, onStatus);
   return { onMessage, onStatus, dispose };
 }
 
@@ -70,15 +70,20 @@ afterEach(() => {
 });
 
 describe("connect", () => {
-  test("opens ws://host/ws?bufnr=N", () => {
-    setup("http:", "localhost:8090", 7);
+  test("opens ws://host/ws?path=<page>", () => {
+    setup("http:", "localhost:8090", "/page/7");
     expect(sockets()).toHaveLength(1);
-    expect(latest().url).toBe("ws://localhost:8090/ws?bufnr=7");
+    expect(latest().url).toBe("ws://localhost:8090/ws?path=%2Fpage%2F7");
+  });
+
+  test("passes a /files/ page's path encoded", () => {
+    setup("http:", "localhost:8090", "/files/docs/my%20file.md");
+    expect(latest().url).toBe("ws://localhost:8090/ws?path=%2Ffiles%2Fdocs%2Fmy%2520file.md");
   });
 
   test("uses wss:// when the page is served over https", () => {
-    setup("https:", "preview.example.com", 12);
-    expect(latest().url).toBe("wss://preview.example.com/ws?bufnr=12");
+    setup("https:", "preview.example.com", "/page/12");
+    expect(latest().url).toBe("wss://preview.example.com/ws?path=%2Fpage%2F12");
   });
 
   test("reports the connection status", () => {
@@ -94,7 +99,7 @@ describe("connect", () => {
   test("passes parsed messages on", () => {
     const { onMessage } = setup();
     latest().open();
-    const message = { type: "change_bufnr", bufnr: 4 } as const;
+    const message = { type: "change_bufnr", bufnr: 4, path: "/page/4" } as const;
     latest().send(message);
     expect(onMessage).toHaveBeenCalledExactlyOnceWith(message);
   });
@@ -117,7 +122,7 @@ describe("connect", () => {
     setup();
     const delays = Array.from({ length: 7 }, () => reconnectDelay());
     expect(delays).toEqual([500, 1000, 2000, 4000, 5000, 5000, 5000]);
-    expect(sockets().every((socket) => socket.url === "ws://localhost:8090/ws?bufnr=3")).toBe(true);
+    expect(sockets().every((socket) => socket.url === "ws://localhost:8090/ws?path=%2Fpage%2F3")).toBe(true);
   });
 
   test("resets the backoff after a successful connection", () => {
@@ -141,7 +146,7 @@ describe("connect", () => {
   test("other messages do not stop reconnecting", () => {
     setup();
     latest().open();
-    latest().send({ type: "change_bufnr", bufnr: 1 });
+    latest().send({ type: "change_bufnr", bufnr: 1, path: "/page/1" });
     expect(reconnectDelay()).toBe(500);
   });
 

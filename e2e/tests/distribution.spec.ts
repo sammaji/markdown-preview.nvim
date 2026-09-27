@@ -261,7 +261,7 @@ function anchors(markdown: string) {
   });
 }
 
-/** The content file of a site path such as `/docs/features/themes/`. */
+/** The content file of a site path such as `/features/themes/` or `/docs/features/themes/`. */
 function pageOfUrl(path: string) {
   const slug = path.replace(/^\/docs\/?/, "").replace(/\/$/, "");
   return [`${CONTENT}/${slug || "index"}.mdx`, `${CONTENT}/${slug}/index.mdx`].find((f) => existsSync(join(REPO, f)));
@@ -270,7 +270,8 @@ function pageOfUrl(path: string) {
 /** The repository file a link in `doc` points to, or undefined when it is broken. */
 function linkTarget(doc: string, file: string) {
   if (file.startsWith(SITE)) return file === SITE || file === `${SITE}/` ? "docs/app/(home)/page.tsx" : pageOfUrl(file.slice(SITE.length));
-  if (file.startsWith("/docs")) return pageOfUrl(file);
+  // site pages live at the root; /docs/ links are redirected there
+  if (file.startsWith("/")) return pageOfUrl(file);
   const path = file ? join(dirname(doc), decodeURIComponent(file)) : doc;
   return existsSync(join(REPO, path)) ? path : undefined;
 }

@@ -32,8 +32,10 @@ interface Header {
 // how long to wait for more keystrokes before re-rendering
 const RENDER_DEBOUNCE_MS = 16;
 
-export function bufnrFromUrl(): number {
-  return Number(window.location.pathname.match(/\/page\/(\d+)/)?.[1] ?? NaN);
+// the url path of a preview page, /page/<bufnr> or /files/<path>, or null
+export function pageFromUrl(): string | null {
+  const path = window.location.pathname;
+  return /^\/(page\/\d+|files\/.+)$/.test(path) ? path : null;
 }
 
 // file name without directory and extension
@@ -73,7 +75,7 @@ function umlColors(): UmlColors | undefined {
 
 export function Preview() {
   const bodyRef = useRef<HTMLElement>(null);
-  const [bufnr, setBufnr] = useState<number>();
+  const [page, setPage] = useState<string | null>();
   const [connected, setConnected] = useState(true);
   const [stopped, setStopped] = useState(false);
   const [header, setHeader] = useState<Header>();
@@ -93,7 +95,7 @@ export function Preview() {
     chosenThemeRef.current = chosenTheme;
   }, [chosenTheme]);
 
-  useEffect(() => setBufnr(bufnrFromUrl()), []);
+  useEffect(() => setPage(pageFromUrl()), []);
 
   const render = useCallback(async (theme: Theme) => {
     const body = bodyRef.current;
@@ -171,11 +173,11 @@ export function Preview() {
           break;
         case "change_bufnr":
           // g:mkdp_combine_preview: show another buffer in this page
-          window.history.replaceState(null, "", `/page/${message.bufnr}`);
+          window.history.replaceState(null, "", message.path);
           source.current = undefined;
           bodyRef.current?.replaceChildren();
           forgetDiagrams();
-          setBufnr(message.bufnr);
+          setPage(message.path);
           break;
       }
     },
@@ -183,9 +185,9 @@ export function Preview() {
   );
 
   useEffect(() => {
-    if (bufnr === undefined || Number.isNaN(bufnr)) return;
-    return connect(bufnr, onMessage, setConnected);
-  }, [bufnr, onMessage]);
+    if (!page) return;
+    return connect(page, onMessage, setConnected);
+  }, [page, onMessage]);
 
   useEffect(() => {
     if (theme) applyTheme(theme);
@@ -203,7 +205,7 @@ export function Preview() {
     render(next);
   };
 
-  if (bufnr !== undefined && Number.isNaN(bufnr)) {
+  if (page === null) {
     return <p className="notice">Open this page with :MarkdownPreview.</p>;
   }
 

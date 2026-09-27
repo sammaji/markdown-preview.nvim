@@ -13,7 +13,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::Router;
 use include_dir::{include_dir, Dir};
-use percent_encoding::percent_decode_str;
+use percent_encoding::{percent_decode_str, utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, Notify};
@@ -30,6 +30,21 @@ static OUT: Dir = include_dir!("$CARGO_MANIFEST_DIR/app/out");
 /// How many ports after the preferred one to try before letting the OS pick.
 const PORT_ATTEMPTS: u16 = 20;
 
+/// Characters escaped in the file names of /files/ urls.
+const PATH_SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'_')
+    .remove(b'~');
+
+/// What a preview page shows: a buffer, which the editor keeps up to date, or
+/// a markdown file under the root that no buffer has open, read from disk.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum Target {
+    Buffer(i64),
+    File(PathBuf),
+}
+
 /// A preview page connected over the WebSocket.
 struct Client {
     id: u64,
@@ -38,8 +53,8 @@ struct Client {
 
 pub struct App {
     editor: Editor,
-    /// Connected preview pages, keyed by the buffer number they show.
-    clients: Mutex<HashMap<i64, Vec<Client>>>,
+    /// Connected preview pages, keyed by what they show.
+    clients: Mutex<HashMap<Target, Vec<Client>>>,
     next_client_id: AtomicU64,
     /// Pages whose socket is still open, and a signal when one closes.
     connected: AtomicUsize,
@@ -47,6 +62,9 @@ pub struct App {
     open_to_the_world: bool,
     port: u16,
     token: String,
+    /// The editor's working directory when the server started, canonical.
+    /// Files under it are previewed at /files/<path relative to it>.
+    root: Option<PathBuf>,
 }
 
 pub async fn run(editor: Editor, mut incoming: mpsc::UnboundedReceiver<Incoming>) {
@@ -72,7 +90,11 @@ pub async fn run(editor: Editor, mut incoming: mpsc::UnboundedReceiver<Incoming>
     let port = listener.local_addr().map(|a| a.port()).unwrap_or_default();
     info!(LOG, "server run: {port}");
 
-    let app = App::new(editor.clone(), open_to_the_world, port);
+    let root = match editor.call("getcwd", vec![]).await {
+        Ok(Value::String(cwd)) => Path::new(&cwd).canonicalize().ok(),
+        _ => None,
+    };
+    let app = App::new(editor.clone(), open_to_the_world, port, root);
     let router = router(app.clone());
     tokio::spawn(async move {
         if let Err(err) = axum::serve(listener, router).await {
@@ -150,7 +172,7 @@ fn router(app: Arc<App>) -> Router {
 }
 
 impl App {
-    fn new(editor: Editor, open_to_the_world: bool, port: u16) -> Arc<App> {
+    fn new(editor: Editor, open_to_the_world: bool, port: u16, root: Option<PathBuf>) -> Arc<App> {
         Arc::new(App {
             editor,
             clients: Mutex::new(HashMap::new()),
@@ -160,6 +182,7 @@ impl App {
             open_to_the_world,
             port,
             token: new_token(),
+            root,
         })
     }
 
@@ -208,18 +231,22 @@ impl App {
 
     /// Serves one preview page until it disconnects or its buffer's preview is
     /// closed.
-    async fn serve_client(self: Arc<Self>, bufnr: i64, mut socket: WebSocket) {
+    async fn serve_client(self: Arc<Self>, target: Target, mut socket: WebSocket) {
         let id = self.next_client_id.fetch_add(1, Ordering::Relaxed);
         self.connected.fetch_add(1, Ordering::SeqCst);
-        info!(LOG, "client connect: {id} {bufnr}");
+        info!(LOG, "client connect: {id} {target:?}");
         let (tx, mut rx) = mpsc::unbounded_channel();
-        if let Some(data) = self.preview_data(bufnr).await {
+        let data = match &target {
+            Target::Buffer(bufnr) => self.preview_data(*bufnr).await,
+            Target::File(path) => self.file_preview_data(path).await,
+        };
+        if let Some(data) = data {
             let _ = tx.send(message(json!({ "type": "refresh_content", "data": data })));
         }
         self.clients
             .lock()
             .unwrap()
-            .entry(bufnr)
+            .entry(target)
             .or_default()
             .push(Client { id, tx });
         self.update_clients_active().await;
@@ -279,12 +306,32 @@ impl App {
         }
     }
 
+    async fn file_preview_data(&self, path: &Path) -> Option<Value> {
+        let path = path.to_string_lossy();
+        match self
+            .editor
+            .call("mkdp#util#file_preview_data", vec![path.as_ref().into()])
+            .await
+        {
+            Ok(data) if data.is_object() => Some(data),
+            Ok(_) => None,
+            Err(err) => {
+                error!(LOG, "failed to read {path}: {err}");
+                None
+            }
+        }
+    }
+
     /// Sends `msg` to the pages showing `bufnr`, or to all pages.
     fn broadcast(&self, bufnr: Option<i64>, msg: Value) -> usize {
         let msg = message(msg);
         let clients = self.clients.lock().unwrap();
         let targets: Vec<&Client> = match bufnr {
-            Some(bufnr) => clients.get(&bufnr).into_iter().flatten().collect(),
+            Some(bufnr) => clients
+                .get(&Target::Buffer(bufnr))
+                .into_iter()
+                .flatten()
+                .collect(),
             None => clients.values().flatten().collect(),
         };
         targets
@@ -297,7 +344,7 @@ impl App {
         self.clients
             .lock()
             .unwrap()
-            .get(&bufnr)
+            .get(&Target::Buffer(bufnr))
             .is_some_and(|c| !c.is_empty())
     }
 
@@ -317,7 +364,7 @@ impl App {
     async fn close_page(&self, bufnr: i64) {
         info!(LOG, "close page: {bufnr}");
         self.broadcast(Some(bufnr), json!({ "type": "close_page" }));
-        self.clients.lock().unwrap().remove(&bufnr);
+        self.clients.lock().unwrap().remove(&Target::Buffer(bufnr));
         self.update_clients_active().await;
     }
 
@@ -347,8 +394,12 @@ impl App {
     async fn open_browser(&self, bufnr: i64) {
         let editor = &self.editor;
         let combine_preview = truthy(&editor.get_var("mkdp_combine_preview").await);
+        let path = self.page_path(bufnr).await;
         if combine_preview
-            && self.broadcast(None, json!({ "type": "change_bufnr", "bufnr": bufnr })) > 0
+            && self.broadcast(
+                None,
+                json!({ "type": "change_bufnr", "bufnr": bufnr, "path": path }),
+            ) > 0
         {
             info!(LOG, "combine preview page: {bufnr}");
             return;
@@ -362,7 +413,7 @@ impl App {
         } else {
             "localhost".into()
         };
-        let mut url = format!("http://{host}:{}/page/{bufnr}", self.port);
+        let mut url = format!("http://{host}:{}{path}", self.port);
         if self.open_to_the_world {
             url.push_str(&format!("?token={}", self.token));
         }
@@ -386,6 +437,82 @@ impl App {
     }
 }
 
+impl App {
+    /// `[bufnr, full path]` of the editor's loaded buffers with a file.
+    async fn buffers(&self) -> Vec<(i64, String)> {
+        let Ok(Value::Array(buffers)) = self.editor.call("mkdp#util#buffers", vec![]).await else {
+            return vec![];
+        };
+        buffers
+            .iter()
+            .filter_map(|b| Some((b.get(0)?.as_i64()?, b.get(1)?.as_str()?.to_string())))
+            .collect()
+    }
+
+    /// The url path of the page for `bufnr`: /files/<path> when its file is
+    /// under the root, /page/<bufnr> for other files and unnamed buffers.
+    async fn page_path(&self, bufnr: i64) -> String {
+        let relative = async {
+            let root = self.root.as_ref()?;
+            let (_, name) = self
+                .buffers()
+                .await
+                .into_iter()
+                .find(|(n, _)| *n == bufnr)?;
+            let path = Path::new(&name).canonicalize().ok()?;
+            let relative = path.strip_prefix(root).ok()?;
+            let segments: Vec<String> = relative
+                .components()
+                .map(|c| {
+                    utf8_percent_encode(&c.as_os_str().to_string_lossy(), PATH_SEGMENT).to_string()
+                })
+                .collect();
+            (!segments.is_empty()).then(|| segments.join("/"))
+        };
+        match relative.await {
+            Some(relative) => format!("/files/{relative}"),
+            None => format!("/page/{bufnr}"),
+        }
+    }
+
+    /// The file a /files/ url path names: under the root, after following
+    /// symlinks, and existing.
+    fn resolve_file(&self, encoded: &str) -> Option<PathBuf> {
+        let root = self.root.as_ref()?;
+        let decoded = percent_decode_str(encoded).decode_utf8().ok()?;
+        let relative = Path::new(decoded.as_ref());
+        // no `..`, no absolute paths and, on Windows, no drive letters
+        if decoded.is_empty()
+            || decoded.contains('\0')
+            || !relative
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_)))
+        {
+            return None;
+        }
+        let path = root.join(relative).canonicalize().ok()?;
+        (path.starts_with(root) && path.is_file()).then_some(path)
+    }
+
+    /// What the page at url path `page` shows.
+    async fn target(&self, page: &str) -> Option<Target> {
+        if let Some(bufnr) = page.strip_prefix("/page/") {
+            return bufnr.parse().ok().map(Target::Buffer);
+        }
+        let path = self.resolve_file(page.strip_prefix("/files/")?)?;
+        let buffer = self.buffers().await.into_iter().find(|(_, name)| {
+            Path::new(name)
+                .canonicalize()
+                .is_ok_and(|name| name == path)
+        });
+        match buffer {
+            Some((bufnr, _)) => Some(Target::Buffer(bufnr)),
+            None if is_markdown(&path) => Some(Target::File(path)),
+            None => None,
+        }
+    }
+}
+
 fn message(msg: Value) -> Message {
     Message::Text(msg.to_string().into())
 }
@@ -402,9 +529,14 @@ async fn websocket(
     if !app.authorized(&uri, &headers) {
         return StatusCode::UNAUTHORIZED.into_response();
     }
-    let bufnr = query_param(&uri, "bufnr").and_then(|v| v.parse::<i64>().ok());
-    match bufnr {
-        Some(bufnr) => ws.on_upgrade(move |socket| app.serve_client(bufnr, socket)),
+    // the url path of the page, e.g. /page/3 or /files/docs/a.md
+    let page = query_param(&uri, "path").map(|p| percent_decode_str(p).decode_utf8_lossy());
+    let target = match page {
+        Some(page) => app.target(&page).await,
+        None => None,
+    };
+    match target {
+        Some(target) => ws.on_upgrade(move |socket| app.serve_client(target, socket)),
         None => StatusCode::BAD_REQUEST.into_response(),
     }
 }
@@ -424,13 +556,24 @@ async fn route(State(app): State<Arc<App>>, req: Request) -> Response {
             .unwrap_or_default();
         return Redirect::temporary(&format!("/page/{bufnr}{query}")).into_response();
     }
+    let files = path.starts_with("/files/");
     let page = path == "/"
         || (path.starts_with("/page/") && path[6..].starts_with(|c: char| c.is_ascii_digit()));
-    let private = page || path.starts_with("/_assets/") || path.starts_with("/_theme/");
+    let private = page || files || path.starts_with("/_assets/") || path.starts_with("/_theme/");
     if private && !app.authorized(req.uri(), req.headers()) {
         return unauthorized();
     }
-    if page {
+    if files && app.target(path).await.is_none() {
+        // a link from a page to an image or video next to it
+        return match app.resolve_file(&path[7..]) {
+            Some(file) if is_media(&file) => match tokio::fs::read(&file).await {
+                Ok(bytes) => file_response(&file.to_string_lossy(), bytes),
+                Err(_) => not_found(),
+            },
+            _ => not_found(),
+        };
+    }
+    if page || files {
         let mut response = embedded("index.html");
         if app.open_to_the_world {
             let cookie = format!(
@@ -462,38 +605,45 @@ async fn route(State(app): State<Arc<App>>, req: Request) -> Response {
         }
     }
     if let Some(image) = path.strip_prefix("/_assets/") {
-        let referer = req
+        // the url path of the page showing the image
+        let page = req
             .headers()
             .get(header::REFERER)
             .and_then(|r| r.to_str().ok())
             .map(|r| r.split(['?', '#']).next().unwrap_or(r))
-            .unwrap_or(path);
-        let bufnr = referer
-            .rsplit('/')
-            .next()
-            .and_then(|n| n.parse::<i64>().ok());
-        return local_image(&app, bufnr, image)
+            .and_then(|r| r.split_once("://"))
+            .and_then(|(_, rest)| rest.find('/').map(|slash| &rest[slash..]));
+        let target = match page {
+            Some(page) => app.target(page).await,
+            None => None,
+        };
+        return local_image(&app, target, image)
             .await
             .unwrap_or_else(not_found);
     }
     embedded(path.trim_start_matches('/'))
 }
 
-async fn local_image(app: &App, bufnr: Option<i64>, image: &str) -> Option<Response> {
+async fn local_image(app: &App, target: Option<Target>, image: &str) -> Option<Response> {
     info!(LOG, "image route: {image}");
     let editor = &app.editor;
-    let bufnr = bufnr?;
-    if !truthy(&editor.call("bufexists", vec![bufnr.into()]).await.ok()?) {
-        return None;
+    let target = target?;
+    if let Target::Buffer(bufnr) = target {
+        if !truthy(&editor.call("bufexists", vec![bufnr.into()]).await.ok()?) {
+            return None;
+        }
     }
     let mut file_dir = var_string(editor.get_var("mkdp_images_path").await);
     if file_dir.is_empty() {
-        file_dir = var_string(
-            editor
-                .call("expand", vec![format!("#{bufnr}:p:h").into()])
-                .await
-                .ok()?,
-        );
+        file_dir = match target {
+            Target::Buffer(bufnr) => var_string(
+                editor
+                    .call("expand", vec![format!("#{bufnr}:p:h").into()])
+                    .await
+                    .ok()?,
+            ),
+            Target::File(path) => path.parent()?.to_string_lossy().into_owned(),
+        };
     }
     if std::env::var_os("MINGW_HOME").is_some() && !file_dir.contains(':') {
         // unix-like path such as /Z/x/y from a MinGW vim; convert to Z:\x\y
@@ -642,6 +792,16 @@ fn is_package_import(line: &str) -> bool {
         return false;
     };
     !(name.contains(':') || name.starts_with(['.', '/']) || name.ends_with(".css"))
+}
+
+/// Files a /files/ url previews when no buffer has them open.
+fn is_markdown(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| {
+            ["md", "markdown", "mkd", "mdown", "mkdn", "mdwn"]
+                .contains(&ext.to_ascii_lowercase().as_str())
+        })
 }
 
 fn is_media(path: &Path) -> bool {

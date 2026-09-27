@@ -65,6 +65,35 @@ opts = {
 buffer. With `combine_preview_auto_refresh` (on by default), entering a
 markdown buffer is enough.
 
+## Page URLs and links between files
+
+A file under the editor's working directory is previewed at its path relative
+to that directory, so `docs/guide.md` opens at:
+
+```text
+http://localhost:8090/files/docs/guide.md
+```
+
+The working directory is the one the editor had when the preview server
+started. Files outside it, and buffers without a file, are previewed at
+`/page/<buffer number>` instead.
+
+Links between markdown files work in the preview. Clicking this one opens the
+page of `docs/guide.md`:
+
+```markdown
+See the [guide](docs/guide.md).
+```
+
+If the file is open in the editor, the page shows its buffer and follows your edits. Otherwise the file
+is read from disk, as it was saved, without opening it in the editor. Images
+in it are found next to it.
+
+The URL can only name files inside the working directory: `..`, absolute
+paths, and symlinks that point elsewhere give a 404. Files that aren't
+markdown aren't shown, except images, audio and video, which a page may link
+to.
+
 ## The page
 
 - The header shows the file name. Hide it with
