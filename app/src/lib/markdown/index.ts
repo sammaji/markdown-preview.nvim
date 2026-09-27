@@ -8,6 +8,7 @@ import taskLists from "markdown-it-task-lists";
 import toc from "markdown-it-toc-done-right";
 
 import type { PreviewOptions } from "../protocol";
+import alerts from "./alerts";
 import fence from "./fence";
 import frontMatter from "./front-matter";
 import images from "./images";
@@ -53,6 +54,7 @@ export function createRenderer(options: PreviewOptions): MarkdownIt {
     .use(taskLists)
     .use(deflist)
     .use(footnote)
+    .use(alerts)
     .use(images)
     .use(lineNumbers)
     .use(fence, options.uml)
