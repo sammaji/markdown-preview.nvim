@@ -15,8 +15,15 @@
 #### Changed
 - The documentation is now a [Fumadocs](https://fumadocs.dev) site,
   [mkdp.sammaji.com](https://mkdp.sammaji.com).
+- The page is styled with [shadcn/ui](https://ui.shadcn.com) theme variables,
+  with shadcn's neutral theme as the default look, and GitHub's code colors
+  in both themes. The page sets the `dark` class on `<html>` in the dark
+  theme, as shadcn themes expect; `data-theme` is still set for custom CSS.
 
 #### Added
+- `g:mkdp_theme_css`: a theme from [shadcn](https://ui.shadcn.com/themes) or tweakcn.com
+  (Tailwind v3 and v4 formats). The theme can load font files from its own
+  folder.
 - `g:mkdp_browser` can be a list, run as a command with the URL appended, e.g.
   `{ "firefox", "-P", "work" }`
   ([iamcco#55](https://github.com/iamcco/markdown-preview.nvim/issues/55),

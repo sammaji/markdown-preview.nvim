@@ -6,7 +6,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { connect } from "@/lib/connection";
 import { renderDiagrams, type Theme } from "@/lib/diagrams";
 import { createRenderer } from "@/lib/markdown";
-import type { PreviewData, PreviewOptions, ServerMessage } from "@/lib/protocol";
+import type {
+  PreviewData,
+  PreviewOptions,
+  ServerMessage,
+} from "@/lib/protocol";
 import { syncScroll } from "@/lib/scroll";
 
 import { ThemeToggle } from "./theme-toggle";
@@ -33,7 +37,9 @@ export function displayName(path: string): string {
 }
 
 function systemTheme(): Theme {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 export function Preview() {
@@ -75,7 +81,10 @@ export function Preview() {
       options.current = data.options ?? {};
       md.current ??= createRenderer(options.current);
 
-      const nextEditorTheme = data.theme === "dark" || data.theme === "light" ? data.theme : systemTheme();
+      const nextEditorTheme =
+        data.theme === "dark" || data.theme === "light"
+          ? data.theme
+          : systemTheme();
       setEditorTheme(nextEditorTheme);
       setHeader({
         name: displayName(data.name),
@@ -86,7 +95,9 @@ export function Preview() {
 
       lastScroll.current = () => {
         if (!data.isActive || data.options?.disable_sync_scroll) return;
-        const scroll = syncScroll[data.options?.sync_scroll_type ?? "middle"] ?? syncScroll.middle;
+        const scroll =
+          syncScroll[data.options?.sync_scroll_type ?? "middle"] ??
+          syncScroll.middle;
         scroll({
           cursor: data.cursor[1],
           winline: data.winline,
@@ -141,11 +152,14 @@ export function Preview() {
   }, [bufnr, onMessage]);
 
   useEffect(() => {
-    if (theme) document.documentElement.dataset.theme = theme;
+    if (!theme) return;
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.dataset.theme = theme;
   }, [theme]);
 
   useEffect(() => {
-    if (header) document.title = header.pageTitle.replace("${name}", header.name);
+    if (header)
+      document.title = header.pageTitle.replace("${name}", header.name);
   }, [header]);
 
   const toggleTheme = () => {
@@ -161,11 +175,20 @@ export function Preview() {
 
   return (
     <main>
-      <div id="page-ctn" contentEditable={header?.editable} suppressContentEditableWarning>
+      <div
+        id="page-ctn"
+        contentEditable={header?.editable}
+        suppressContentEditableWarning
+      >
         {header?.showFilename && (
           <header id="page-header">
             <h3>
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <svg
+                viewBox="0 0 16 16"
+                width="16"
+                height="16"
+                aria-hidden="true"
+              >
                 <path
                   fillRule="evenodd"
                   d="M3 5h4v1H3V5zm0 3h4V7H3v1zm0 2h4V9H3v1zm11-5h-4v1h4V5zm0 2h-4v1h4V7zm0 2h-4v1h4V9zm2-6v9c0 .55-.45 1-1 1H9.5l-1 1-1-1H2c-.55 0-1-.45-1-1V3c0-.55.45-1 1-1h5.5l1 1 1-1H15c.55 0 1 .45 1 1zm-8 .5L7.5 3H2v9h6V3.5zm7-.5H9.5l-.5.5V12h6V3z"
@@ -175,7 +198,9 @@ export function Preview() {
             </h3>
             <div className="header-actions">
               {(stopped || !connected) && (
-                <span className="status">{stopped ? "Preview stopped" : "Disconnected"}</span>
+                <span className="status">
+                  {stopped ? "Preview stopped" : "Disconnected"}
+                </span>
               )}
               <ThemeToggle theme={theme ?? "light"} onToggle={toggleTheme} />
             </div>

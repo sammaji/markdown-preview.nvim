@@ -425,7 +425,7 @@ async fn route(State(app): State<Arc<App>>, req: Request) -> Response {
     }
     let page = path == "/"
         || (path.starts_with("/page/") && path[6..].starts_with(|c: char| c.is_ascii_digit()));
-    let private = page || path.starts_with("/_assets/");
+    let private = page || path.starts_with("/_assets/") || path.starts_with("/_theme/");
     if private && !app.authorized(req.uri(), req.headers()) {
         return unauthorized();
     }
@@ -442,6 +442,9 @@ async fn route(State(app): State<Arc<App>>, req: Request) -> Response {
             }
         }
         return response;
+    }
+    if let Some(file) = path.strip_prefix("/_theme/") {
+        return theme_file(&app, file).await;
     }
     let custom_css = match path {
         "/_static/markdown.css" => Some("mkdp_markdown_css"),
@@ -539,6 +542,105 @@ async fn local_image(app: &App, bufnr: Option<i64>, image: &str) -> Option<Respo
     }
     error!(LOG, "image not exists: {}", img_path.display());
     None
+}
+
+async fn theme_file(app: &App, file: &str) -> Response {
+    let theme = var_string(app.editor.get_var("mkdp_theme_css").await);
+    if file != "theme.css" {
+        return theme_font(&theme, file).await.unwrap_or_else(not_found);
+    }
+    let mut css = String::new();
+    if !theme.is_empty() {
+        match tokio::fs::read_to_string(&theme).await {
+            Ok(text) => css = theme_css(&text),
+            Err(err) => error!(LOG, "load theme css fail: {theme}: {err}"),
+        }
+    }
+    file_response("theme.css", css)
+}
+
+async fn theme_font(theme: &str, file: &str) -> Option<Response> {
+    let decoded = percent_decode_str(file).decode_utf8_lossy();
+    if theme.is_empty() || !is_font(Path::new(&*decoded)) {
+        return None;
+    }
+    let dir = Path::new(theme).parent()?.canonicalize().ok()?;
+    let font = dir.join(&*decoded).canonicalize().ok()?;
+    if !font.starts_with(&dir) {
+        return None;
+    }
+    let bytes = tokio::fs::read(&font).await.ok()?;
+    Some(file_response(&font.to_string_lossy(), bytes))
+}
+
+fn is_font(path: &Path) -> bool {
+    mime_guess::from_path(path)
+        .iter()
+        .any(|mime| mime.type_() == mime_guess::mime::FONT)
+}
+
+pub(crate) fn theme_css(css: &str) -> String {
+    let mut out = String::with_capacity(css.len());
+    let mut rest = css;
+    while let Some(at) = rest.find("--") {
+        let (before, from) = rest.split_at(at);
+        out.push_str(before);
+        let name_len = from[2..]
+            .find(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))
+            .map_or(from.len(), |n| n + 2);
+        let (name, after) = from.split_at(name_len);
+        out.push_str(name);
+        rest = after;
+        let Some(value) = after.strip_prefix(':') else {
+            continue;
+        };
+        let end = value.find([';', '}']).unwrap_or(value.len());
+        let (value, tail) = value.split_at(end);
+        if is_hsl_channels(value.trim()) {
+            out.push_str(&format!(": hsl({})", value.trim()));
+        } else {
+            out.push(':');
+            out.push_str(value);
+        }
+        rest = tail;
+    }
+    out.push_str(rest);
+    out.lines()
+        .filter(|line| !is_package_import(line.trim()))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// `222.2 47.4% 11.2%`, optionally with ` / 50%` alpha
+fn is_hsl_channels(value: &str) -> bool {
+    let (channels, alpha) = match value.split_once('/') {
+        Some((channels, alpha)) => (channels, Some(alpha.trim())),
+        None => (value, None),
+    };
+    let number = |s: &str| !s.is_empty() && s.parse::<f64>().is_ok();
+    let percent = |s: &str| s.strip_suffix('%').is_some_and(number);
+    let parts: Vec<&str> = channels.split_whitespace().collect();
+    parts.len() == 3
+        && number(parts[0].trim_end_matches("deg"))
+        && percent(parts[1])
+        && percent(parts[2])
+        && alpha.is_none_or(|a| number(a) || percent(a))
+}
+
+/// `@import "tailwindcss";`, but not `@import url(https://fonts...)` or a file
+fn is_package_import(line: &str) -> bool {
+    let Some(target) = line.strip_prefix("@import") else {
+        return false;
+    };
+    let target = target.trim().trim_end_matches(';').trim();
+    let Some(name) = target
+        .strip_prefix('"')
+        .and_then(|t| t.strip_suffix('"'))
+        .or_else(|| target.strip_prefix('\'').and_then(|t| t.strip_suffix('\'')))
+    else {
+        return false;
+    };
+    !(name.contains(':') || name.starts_with(['.', '/']) || name.ends_with(".css"))
 }
 
 fn is_media(path: &Path) -> bool {
