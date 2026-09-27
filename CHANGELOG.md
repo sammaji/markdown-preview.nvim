@@ -47,6 +47,8 @@
   instead of "Preview stopped".
 - 32-bit Linux no longer downloads the x86_64 binary; `install.sh` reports
   an unsupported system and exits with an error.
+- Partial `g:mkdp_preview_options` keep the defaults of the keys they leave
+  out.
 - A port taken on IPv6 (`[::1]`) is skipped. Before, the preview could bind
   the same port on `127.0.0.1` and the browser, trying `localhost` as `::1`
   first, opened the other server.
