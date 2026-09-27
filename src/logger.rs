@@ -1,6 +1,6 @@
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -22,19 +22,16 @@ static LOGGER: OnceLock<Option<Logger>> = OnceLock::new();
 
 pub fn init() {
     LOGGER.get_or_init(|| {
-        let path = std::env::var_os("NVIM_MKDP_LOG_FILE")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| std::env::temp_dir().join("mkdp-nvim.log"));
         let level = match std::env::var("NVIM_MKDP_LOG_LEVEL").as_deref() {
             Ok("debug") => Level::Debug,
             Ok("error") => Level::Error,
             _ => Level::Info,
         };
-        if level == Level::Debug {
-            let _ = File::create(&path);
-        } else if fs::metadata(&path).is_ok_and(|m| m.len() > MAX_LOG_SIZE) {
-            let _ = fs::rename(&path, path.with_extension("log.1"));
-        }
+        let path = match (std::env::var_os("NVIM_MKDP_LOG_FILE"), level) {
+            (Some(path), Level::Debug) => PathBuf::from(path),
+            (None, Level::Debug) => debug_path(),
+            (path, _) => active_file(&path.map(PathBuf::from).unwrap_or_else(default_path)),
+        };
         // append mode keeps lines intact when several editor instances log
         let file = OpenOptions::new()
             .create(true)
@@ -46,6 +43,58 @@ pub fn init() {
             level,
         })
     });
+}
+
+fn active_file(path: &Path) -> PathBuf {
+    let other = with_suffix(path, "1");
+    let modified = |path: &Path| fs::metadata(path).and_then(|m| m.modified()).ok();
+    let (current, next) = if modified(&other) > modified(path) {
+        (other, path.to_path_buf())
+    } else {
+        (path.to_path_buf(), other)
+    };
+    if fs::metadata(&current).is_ok_and(|m| m.len() > MAX_LOG_SIZE) {
+        let _ = File::create(&next);
+        next
+    } else {
+        current
+    }
+}
+
+/// A file of its own for each debug session, kept after it ends:
+/// `mkdp-nvim-<uid>.debug-<YYYYMMDD-HHMMSS>-<pid>.log`.
+fn debug_path() -> PathBuf {
+    let time: String = timestamp()
+        .chars()
+        .filter_map(|c| match c {
+            ' ' => Some('-'),
+            '-' | ':' => None,
+            c => Some(c),
+        })
+        .collect();
+    let suffix = format!("debug-{time}-{}", std::process::id());
+    with_suffix(&default_path(), &suffix)
+}
+
+/// `name.<suffix>.ext`, or `name.<suffix>` when `path` has no extension.
+fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.file_stem().unwrap_or_default().to_os_string();
+    name.push(".");
+    name.push(suffix);
+    if let Some(ext) = path.extension() {
+        name.push(".");
+        name.push(ext);
+    }
+    path.with_file_name(name)
+}
+
+fn default_path() -> PathBuf {
+    #[cfg(unix)]
+    // SAFETY: getuid has no preconditions and cannot fail
+    let name = format!("mkdp-nvim-{}.log", unsafe { libc::getuid() });
+    #[cfg(not(unix))]
+    let name = "mkdp-nvim.log".to_string();
+    std::env::temp_dir().join(name)
 }
 
 pub fn log(level: Level, category: &str, args: std::fmt::Arguments) {
@@ -118,3 +167,7 @@ macro_rules! error {
         $crate::logger::log($crate::logger::Level::Error, $cat, format_args!($($arg)*))
     };
 }
+
+#[cfg(test)]
+#[path = "logger_test.rs"]
+mod tests;

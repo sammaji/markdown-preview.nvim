@@ -19,6 +19,9 @@
   ([iamcco#710](https://github.com/iamcco/markdown-preview.nvim/issues/710),
   [iamcco#741](https://github.com/iamcco/markdown-preview.nvim/issues/741)).
   When nothing can open it, the error shows the URL.
+- The log file is per user (`mkdp-nvim-<uid>.log`), so a file another user
+  left no longer breaks logging
+  ([iamcco#737](https://github.com/iamcco/markdown-preview.nvim/issues/737)).
 
 ## v0.1.1
 
