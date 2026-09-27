@@ -56,6 +56,8 @@
   instead of "Preview stopped".
 - 32-bit Linux no longer downloads the x86_64 binary; `install.sh` reports
   an unsupported system and exits with an error.
+- `<details>` sections keep their open or closed state while you type
+  ([iamcco#600](https://github.com/iamcco/markdown-preview.nvim/issues/600)).
 - Partial `g:mkdp_preview_options` keep the defaults of the keys they leave
   out.
 - A port taken on IPv6 (`[::1]`) is skipped. Before, the preview could bind
