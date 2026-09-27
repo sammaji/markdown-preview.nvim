@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::body::Body;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -16,7 +16,7 @@ use include_dir::{include_dir, Dir};
 use percent_encoding::percent_decode_str;
 use serde_json::{json, Value};
 use tokio::net::TcpListener;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Notify};
 
 use crate::editor::{Editor, Incoming};
 use crate::{error, info, opener};
@@ -41,6 +41,9 @@ pub struct App {
     /// Connected preview pages, keyed by the buffer number they show.
     clients: Mutex<HashMap<i64, Vec<Client>>>,
     next_client_id: AtomicU64,
+    /// Pages whose socket is still open, and a signal when one closes.
+    connected: AtomicUsize,
+    disconnected: Notify,
     open_to_the_world: bool,
     port: u16,
     token: String,
@@ -94,7 +97,7 @@ pub async fn run(editor: Editor, mut incoming: mpsc::UnboundedReceiver<Incoming>
         match msg {
             Incoming::Request { id, method } => {
                 if method == "close_all_pages" {
-                    app.close_all_pages();
+                    app.close_all_pages().await;
                 }
                 editor.respond(id);
             }
@@ -143,6 +146,8 @@ impl App {
             editor,
             clients: Mutex::new(HashMap::new()),
             next_client_id: AtomicU64::new(1),
+            connected: AtomicUsize::new(0),
+            disconnected: Notify::new(),
             open_to_the_world,
             port,
             token: new_token(),
@@ -196,6 +201,7 @@ impl App {
     /// closed.
     async fn serve_client(self: Arc<Self>, bufnr: i64, mut socket: WebSocket) {
         let id = self.next_client_id.fetch_add(1, Ordering::Relaxed);
+        self.connected.fetch_add(1, Ordering::SeqCst);
         info!(LOG, "client connect: {id} {bufnr}");
         let (tx, mut rx) = mpsc::unbounded_channel();
         if let Some(data) = self.preview_data(bufnr).await {
@@ -226,6 +232,10 @@ impl App {
         }
 
         info!(LOG, "disconnect: {id}");
+        let _ = socket.send(Message::Close(None)).await;
+        drop(socket);
+        self.connected.fetch_sub(1, Ordering::SeqCst);
+        self.disconnected.notify_waiters();
         for clients in self.clients.lock().unwrap().values_mut() {
             clients.retain(|c| c.id != id);
         }
@@ -302,10 +312,27 @@ impl App {
         self.update_clients_active().await;
     }
 
-    fn close_all_pages(&self) {
+    async fn close_all_pages(&self) {
         info!(LOG, "close all pages");
         self.broadcast(None, json!({ "type": "close_page" }));
         self.clients.lock().unwrap().clear();
+        let all_closed = async {
+            loop {
+                let notified = self.disconnected.notified();
+                tokio::pin!(notified);
+                notified.as_mut().enable();
+                if self.connected.load(Ordering::SeqCst) == 0 {
+                    return;
+                }
+                notified.await;
+            }
+        };
+        if tokio::time::timeout(Duration::from_secs(1), all_closed)
+            .await
+            .is_err()
+        {
+            error!(LOG, "pages still open after close_all_pages");
+        }
     }
 
     async fn open_browser(&self, bufnr: i64) {
