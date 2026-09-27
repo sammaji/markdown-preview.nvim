@@ -10,16 +10,68 @@ export interface UmlOptions {
   closeMarker?: string;
 }
 
-export function plantumlUrl(code: string, options: UmlOptions): string {
-  const server = options.server || "https://www.plantuml.com/plantuml";
-  return `${server}/${options.imageFormat || "img"}/${encode(code)}`;
+/** Page colors for PlantUML diagrams, as hex. */
+export interface UmlColors {
+  text: string;
+  line: string;
+  node: string;
+  muted: string;
 }
 
-export default function plantumlPlugin(md: MarkdownIt, options: UmlOptions = {}) {
+/** md.render env: the page's colors, which PlantUML diagrams are drawn with. */
+export interface UmlEnv {
+  umlColors?: UmlColors;
+}
+
+/**
+ * PlantUML draws on the server, so CSS can't restyle it: the page's colors go
+ * in the diagram's source instead, on a transparent background.
+ */
+export function plantumlStyle(c: UmlColors): string {
+  return `skinparam backgroundColor transparent
+<style>
+root {
+  FontColor ${c.text}
+  LineColor ${c.line}
+  BackGroundColor ${c.node}
+}
+document { BackGroundColor transparent }
+arrow { LineColor ${c.line}; FontColor ${c.text} }
+note { BackGroundColor ${c.muted}; LineColor ${c.line} }
+group { BackGroundColor transparent }
+groupHeader { BackGroundColor ${c.muted} }
+</style>`;
+}
+
+// the style goes before the diagram's own skinparams and styles, which win
+function withColors(code: string, colors: UmlColors | undefined): string {
+  if (!colors) return code;
+  const start = code.match(/^\s*@start\w*[^\n]*\n/)?.[0] ?? "";
+  return `${start}${plantumlStyle(colors)}\n${code.slice(start.length)}`;
+}
+
+export function plantumlUrl(
+  code: string,
+  options: UmlOptions,
+  colors?: UmlColors,
+): string {
+  const server = options.server || "https://www.plantuml.com/plantuml";
+  return `${server}/${options.imageFormat || "img"}/${encode(withColors(code, colors))}`;
+}
+
+export default function plantumlPlugin(
+  md: MarkdownIt,
+  options: UmlOptions = {},
+) {
   const openMarker = options.openMarker || "@startuml";
   const closeMarker = options.closeMarker || "@enduml";
 
-  function uml(state: StateBlock, startLine: number, endLine: number, silent: boolean): boolean {
+  function uml(
+    state: StateBlock,
+    startLine: number,
+    endLine: number,
+    silent: boolean,
+  ): boolean {
     const start = state.bMarks[startLine] + state.tShift[startLine];
     const max = state.eMarks[startLine];
     if (!state.src.startsWith(openMarker, start)) return false;
@@ -42,11 +94,21 @@ export default function plantumlPlugin(md: MarkdownIt, options: UmlOptions = {})
       }
     }
 
-    const contents = state.src.split("\n").slice(startLine + 1, nextLine).join("\n");
+    const contents = state.src
+      .split("\n")
+      .slice(startLine + 1, nextLine)
+      .join("\n");
     const params = state.src.slice(start + openMarker.length, max);
     const token = state.push("uml_diagram", "img", 0);
     token.attrs = [
-      ["src", plantumlUrl(contents, options)],
+      [
+        "src",
+        plantumlUrl(
+          contents,
+          options,
+          (state.env as UmlEnv | undefined)?.umlColors,
+        ),
+      ],
       ["alt", params.trim() || "uml diagram"],
     ];
     token.block = true;
@@ -59,5 +121,6 @@ export default function plantumlPlugin(md: MarkdownIt, options: UmlOptions = {})
   md.block.ruler.before("fence", "uml_diagram", uml, {
     alt: ["paragraph", "reference", "blockquote", "list"],
   });
-  md.renderer.rules.uml_diagram = (tokens, idx, opts, env, self) => self.renderToken(tokens, idx, opts);
+  md.renderer.rules.uml_diagram = (tokens, idx, opts, env, self) =>
+    self.renderToken(tokens, idx, opts);
 }

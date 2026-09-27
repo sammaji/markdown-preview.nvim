@@ -3,17 +3,21 @@
 // the page.
 import type { MarkdownIt } from "markdown-it";
 
-import { plantumlUrl, type UmlOptions } from "./plantuml";
+import { plantumlUrl, type UmlEnv, type UmlOptions } from "./plantuml";
 import { escapeHtml } from "./utils";
 
 // mermaid code in fences without a language
-const MERMAID_FIRST_LINE = /^(gantt|sequenceDiagram|erDiagram|graph (TB|BT|RL|LR|TD);?)$/;
+const MERMAID_FIRST_LINE =
+  /^(gantt|sequenceDiagram|erDiagram|graph (TB|BT|RL|LR|TD);?)$/;
 
 function placeholder(className: string, code: string) {
   return `<div class="${className}">${escapeHtml(code)}</div>\n`;
 }
 
-export default function fencePlugin(md: MarkdownIt, umlOptions: UmlOptions = {}) {
+export default function fencePlugin(
+  md: MarkdownIt,
+  umlOptions: UmlOptions = {},
+) {
   const fallback = md.renderer.rules.fence!;
 
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
@@ -43,7 +47,7 @@ export default function fencePlugin(md: MarkdownIt, umlOptions: UmlOptions = {})
       return placeholder("mermaid", code);
     }
     if (lang.includes("plantuml")) {
-      return `<img src="${escapeHtml(plantumlUrl(code, umlOptions))}" alt="" />\n`;
+      return `<img src="${escapeHtml(plantumlUrl(code, umlOptions, (env as UmlEnv | undefined)?.umlColors))}" alt="" />\n`;
     }
     return fallback(tokens, idx, options, env, self);
   };

@@ -19,6 +19,9 @@
   with shadcn's neutral theme as the default look, and GitHub's code colors
   in both themes. The page sets the `dark` class on `<html>` in the dark
   theme, as shadcn themes expect; `data-theme` is still set for custom CSS.
+- Diagrams are drawn with the theme's colors - Mermaid (unless `maid` sets a
+  `theme`), flowchart.js, sequence diagrams, Graphviz and PlantUML. Before,
+  most drew black on white, unreadable in the dark theme.
 
 #### Added
 - `g:mkdp_theme_css`: a theme from [shadcn](https://ui.shadcn.com/themes) or tweakcn.com
@@ -38,6 +41,9 @@
   [iamcco#632](https://github.com/iamcco/markdown-preview.nvim/issues/632)).
 - `preview_options.front_matter = "panel"` shows YAML front matter in a
   collapsible panel ([iamcco#521](https://github.com/iamcco/markdown-preview.nvim/issues/521)).
+- A full-screen viewer for Mermaid diagrams: zoom, pan, fit and download as SVG.
+- `maid = { layout = "elk" }` (or `layout: elk` in a diagram) uses Mermaid's
+  ELK layout.
 - Pre-built binaries for Linux arm64 and FreeBSD x64
   ([iamcco#287](https://github.com/iamcco/markdown-preview.nvim/issues/287),
   [iamcco#321](https://github.com/iamcco/markdown-preview.nvim/issues/321)).

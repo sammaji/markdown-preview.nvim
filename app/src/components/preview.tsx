@@ -5,8 +5,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { connect } from "@/lib/connection";
 import { replaceKeepingDetails } from "@/lib/details";
-import { forgetDiagrams, renderDiagrams, type Theme } from "@/lib/diagrams";
+import {
+  forgetDiagrams,
+  renderDiagrams,
+  themeColors,
+  type Theme,
+} from "@/lib/diagrams";
 import { createRenderer } from "@/lib/markdown";
+import type { UmlColors } from "@/lib/markdown/plantuml";
 import type {
   PreviewData,
   PreviewOptions,
@@ -43,6 +49,28 @@ function systemTheme(): Theme {
     : "light";
 }
 
+function applyTheme(theme: Theme) {
+  document.documentElement.classList.toggle("dark", theme === "dark");
+  document.documentElement.dataset.theme = theme;
+}
+
+function umlColors(): UmlColors | undefined {
+  const c = themeColors([
+    "foreground",
+    "muted-foreground",
+    "secondary",
+    "muted",
+  ] as const);
+  if (!c.foreground || !c["muted-foreground"] || !c.secondary || !c.muted)
+    return undefined;
+  return {
+    text: c.foreground,
+    line: c["muted-foreground"],
+    node: c.secondary,
+    muted: c.muted,
+  };
+}
+
 export function Preview() {
   const bodyRef = useRef<HTMLElement>(null);
   const [bufnr, setBufnr] = useState<number>();
@@ -70,7 +98,12 @@ export function Preview() {
   const render = useCallback(async (theme: Theme) => {
     const body = bodyRef.current;
     if (!body || !md.current || source.current === undefined) return;
-    replaceKeepingDetails(body, md.current.render(source.current));
+    // diagrams read the theme's colors, so it must be in place before them
+    applyTheme(theme);
+    replaceKeepingDetails(
+      body,
+      md.current.render(source.current, { umlColors: umlColors() }),
+    );
     lastScroll.current?.();
     await renderDiagrams(body, options.current, theme);
     // diagrams change the height of the page
@@ -155,9 +188,7 @@ export function Preview() {
   }, [bufnr, onMessage]);
 
   useEffect(() => {
-    if (!theme) return;
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.dataset.theme = theme;
+    if (theme) applyTheme(theme);
   }, [theme]);
 
   useEffect(() => {

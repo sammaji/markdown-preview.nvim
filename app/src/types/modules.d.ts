@@ -25,6 +25,7 @@ declare module "markdown-it-task-lists" {
 
 declare module "plantuml-encoder" {
   export function encode(code: string): string;
+  export function decode(encoded: string): string;
 }
 
 declare module "katex/contrib/mhchem";
