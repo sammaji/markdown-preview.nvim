@@ -59,10 +59,15 @@ Three parts, in three languages:
    `g:mkdp_node_channel_id` in the editor to say it is running, and calls
    `mkdp#util#open_browser()`.
 4. The plugin sends the `open_browser` notification. The server builds the URL
-   `http://localhost:<port>/page/<bufnr>` and opens it with `g:mkdp_browserfunc`,
+   `http://localhost:<port>/files/<path>` (the file's path relative to the
+   editor's working directory when the server started) or, for files outside
+   it and unnamed buffers, `/page/<bufnr>`, and opens it with `g:mkdp_browserfunc`,
    `g:mkdp_browser` or the system opener, then calls `g:mkdp_on_start`.
    Later previews in the same editor skip to this step.
-5. The page connects to `/ws?bufnr=<bufnr>`.
+5. The page connects to `/ws?path=<its url path>`. The server finds the
+   buffer: for `/files/<path>`, the loaded buffer of that file, from
+   `mkdp#util#buffers()`. A markdown file no buffer has open is read with
+   `mkdp#util#file_preview_data(path)` and sent once.
 6. On edits and cursor moves, the buffer's autocommands send
    `refresh_content`. The server calls `mkdp#util#preview_data(bufnr)`, which
    returns the lines, cursor, window size and options in one round trip, and
@@ -117,8 +122,9 @@ The page sends nothing; it reconnects with backoff if the connection drops.
 | Route                    | Serves                                                                   |
 | ------------------------ | ------------------------------------------------------------------------ |
 | `/`, `/page/<bufnr>`     | the page (`index.html`)                                                  |
+| `/files/<path>`          | the page for a markdown file under the root, or an image, audio or video file |
 | `/<bufnr>`               | a redirect to `/page/<bufnr>`, for old links                             |
-| `/ws?bufnr=<n>`          | the WebSocket                                                            |
+| `/ws?path=<page>`        | the WebSocket of the page at url path `<page>`                           |
 | `/_static/markdown.css`, `/_static/highlight.css` | `g:mkdp_markdown_css` / `g:mkdp_highlight_css`, or the built-in file |
 | `/_theme/theme.css`      | `g:mkdp_theme_css`, cleaned up for the browser, or an empty file         |
 | `/_theme/<path>`         | font files from the theme's folder                                       |
@@ -135,6 +141,11 @@ The preview shows your files, and browsers let any web site talk to
   another web site can't read the buffer.
 - `/_assets/` only serves image, audio and video files, and `/_theme/`
   only font files from the theme's folder.
+- `/files/` only serves files under the root, the editor's working directory
+  when the server started. A path with `..`, an absolute path, or one that
+  leads out through a symlink is a 404; the resolved path must still be
+  under the root. Of those files it serves markdown files (as the page) and
+  image, audio and video files.
 - With `g:mkdp_open_to_the_world`, the server makes a random 128-bit token.
   Pages, local files, the theme and the WebSocket need it, from the `?token=`
   in the URL or the cookie the page sets. The page's own scripts and styles

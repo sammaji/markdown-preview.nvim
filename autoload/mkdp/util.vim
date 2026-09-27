@@ -229,6 +229,31 @@ function! mkdp#util#preview_data(bufnr) abort
         \ }
 endfunction
 
+" the same for a file that is not open in a buffer, read from disk
+function! mkdp#util#file_preview_data(path) abort
+  if !filereadable(a:path)
+    return v:null
+  endif
+  return {
+        \ 'options': get(g:, 'mkdp_preview_options', {}),
+        \ 'isActive': 0,
+        \ 'winline': 0,
+        \ 'winheight': 0,
+        \ 'cursor': [0, 0, 0, 0],
+        \ 'pageTitle': get(g:, 'mkdp_page_title', ''),
+        \ 'theme': get(g:, 'mkdp_theme', ''),
+        \ 'name': a:path,
+        \ 'content': readfile(a:path),
+        \ }
+endfunction
+
+" [bufnr, full path] of every loaded buffer with a file, so the server can
+" find the buffer of a /files/ page
+function! mkdp#util#buffers() abort
+  return map(filter(getbufinfo({'bufloaded': 1}), 'v:val.name !=# ""'),
+        \ '[v:val.bufnr, v:val.name]')
+endfunction
+
 " 1 when a server binary matching the plugin version is available, so
 " :MarkdownPreview can start it without downloading anything
 function! mkdp#util#server_ready() abort

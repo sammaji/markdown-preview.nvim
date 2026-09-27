@@ -38,4 +38,4 @@ export interface PreviewData {
 export type ServerMessage =
   | { type: "refresh_content"; data: PreviewData }
   | { type: "close_page" }
-  | { type: "change_bufnr"; bufnr: number };
+  | { type: "change_bufnr"; bufnr: number; path: string };

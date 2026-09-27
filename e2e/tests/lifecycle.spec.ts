@@ -110,7 +110,7 @@ test("reloading the page shows the current buffer", async ({ editor, page }) => 
 test("pages for unknown buffers stay empty", async ({ editor, page }) => {
   const url = await preview(editor, page, "note.md", "# Known\n");
   const other = await page.context().newPage();
-  await other.goto(url.replace(/\/page\/\d+$/, "/page/999"));
+  await other.goto(new URL("/page/999", url).href);
   await expect(other.locator(".markdown-body")).toBeAttached();
   await other.waitForTimeout(1_000);
   await expect(other.locator(".markdown-body")).toBeEmpty();
@@ -118,9 +118,9 @@ test("pages for unknown buffers stay empty", async ({ editor, page }) => {
 
 test("the old /<bufnr> URL redirects to the page", async ({ editor, page }) => {
   const url = await preview(editor, page, "note.md", "# Old\n");
-  const old = url.replace("/page/", "/");
-  await page.goto(old);
-  await expect(page).toHaveURL(url);
+  const bufnr = await editor.eval<number>("bufnr('%')");
+  await page.goto(new URL(`/${bufnr}`, url).href);
+  await expect(page).toHaveURL(new RegExp(`/page/${bufnr}$`));
   await expect(page.locator(".markdown-body h1")).toContainText("Old");
 });
 

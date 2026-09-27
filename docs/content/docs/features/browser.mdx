@@ -91,7 +91,7 @@ to open a browser there:
 ```
 
 Connect with the port forwarded, then open the URL that `:MarkdownPreview`
-shows (`http://localhost:8090/page/<n>`) in your local browser:
+shows (`http://localhost:8090/files/<path>`) in your local browser:
 
 ```sh
 ssh -L 8090:localhost:8090 remote-host
@@ -108,7 +108,7 @@ preview URL then uses your machine's IP address (or `open_ip`, when set) and
 carries a secret token:
 
 ```text
-http://192.168.1.20:8090/page/1?token=3f9c...
+http://192.168.1.20:8090/files/README.md?token=3f9c...
 ```
 
 Share the whole URL. Without the token, the server answers nothing: no page,

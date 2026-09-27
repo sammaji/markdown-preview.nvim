@@ -1,6 +1,6 @@
 # `sammaji/markdown-preview.nvim` changelog
 
-## Unreleased
+## v0.2.0
 
 #### Security
 - The WebSocket refuses connections from other web sites, which could
@@ -12,10 +12,11 @@
   the server could read was served, e.g. `/_local_image_/etc/passwd`, to anyone
   on the network with `g:mkdp_open_to_the_world`.
 
-
 #### Changed
-- The documentation is now a [Fumadocs](https://fumadocs.dev) site,
-  [mkdp.sammaji.com](https://mkdp.sammaji.com).
+- The preview URL is the file's path relative to the editor's working
+  directory, e.g. `/files/docs/guide.md`, instead of the buffer number. Files
+  outside it and unnamed buffers keep `/page/<bufnr>`.
+- The documentation now lives in [mkdp.sammaji.com](https://mkdp.sammaji.com).
 - The page is styled with [shadcn/ui](https://ui.shadcn.com) theme variables,
   with shadcn's neutral theme as the default look, and GitHub's code colors
   in both themes. The page sets the `dark` class on `<html>` in the dark
@@ -45,6 +46,13 @@
 - A full-screen viewer for Mermaid diagrams: zoom, pan, fit and download as SVG.
 - `maid = { layout = "elk" }` (or `layout: elk` in a diagram) uses Mermaid's
   ELK layout.
+- Links to other markdown files work in the preview: clicking
+  `[guide](docs/guide.md)` opens that file, showing its buffer if the editor
+  has it open or the file from disk otherwise. Only files under the editor's
+  working directory can be opened
+  ([iamcco#58](https://github.com/iamcco/markdown-preview.nvim/issues/58),
+  [iamcco#699](https://github.com/iamcco/markdown-preview.nvim/issues/699),
+  [iamcco#683](https://github.com/iamcco/markdown-preview.nvim/issues/683)).
 - Pre-built binaries for Linux arm64 and FreeBSD x64
   ([iamcco#287](https://github.com/iamcco/markdown-preview.nvim/issues/287),
   [iamcco#321](https://github.com/iamcco/markdown-preview.nvim/issues/321)).

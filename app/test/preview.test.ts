@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 
-import { bufnrFromUrl, displayName } from "@/components/preview";
+import { displayName, pageFromUrl } from "@/components/preview";
 
 describe("displayName", () => {
   test.each([
@@ -15,20 +15,22 @@ describe("displayName", () => {
   });
 });
 
-describe("bufnrFromUrl", () => {
+describe("pageFromUrl", () => {
   afterEach(() => window.history.replaceState(null, "", "/"));
 
   test.each([
-    ["/page/1", 1],
-    ["/page/42", 42],
-    ["/page/7?x=1#top", 7],
-  ])("%s -> %d", (path, bufnr) => {
+    ["/page/1", "/page/1"],
+    ["/page/42", "/page/42"],
+    ["/page/7?x=1#top", "/page/7"],
+    ["/files/README.md", "/files/README.md"],
+    ["/files/docs/my%20file.md#usage", "/files/docs/my%20file.md"],
+  ])("%s -> %s", (path, page) => {
     window.history.replaceState(null, "", path);
-    expect(bufnrFromUrl()).toBe(bufnr);
+    expect(pageFromUrl()).toBe(page);
   });
 
-  test.each(["/", "/page/", "/page/abc", "/other/3"])("%s has no buffer", (path) => {
+  test.each(["/", "/page/", "/page/abc", "/files/", "/other/3"])("%s is no preview", (path) => {
     window.history.replaceState(null, "", path);
-    expect(bufnrFromUrl()).toBeNaN();
+    expect(pageFromUrl()).toBeNull();
   });
 });

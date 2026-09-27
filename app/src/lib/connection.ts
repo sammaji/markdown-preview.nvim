@@ -4,11 +4,12 @@ const MIN_RETRY_MS = 500;
 const MAX_RETRY_MS = 5000;
 
 /**
- * Subscribes to a buffer's preview updates, reconnecting if the connection
- * drops. Returns a function that closes the connection.
+ * Subscribes to the preview updates of the page at url path `page`
+ * (`/page/<bufnr>` or `/files/<path>`), reconnecting if the connection drops.
+ * Returns a function that closes the connection.
  */
 export function connect(
-  bufnr: number,
+  page: string,
   onMessage: (message: ServerMessage) => void,
   onStatus: (connected: boolean) => void,
 ): () => void {
@@ -19,7 +20,9 @@ export function connect(
 
   const open = () => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    socket = new WebSocket(`${protocol}//${window.location.host}/ws?bufnr=${bufnr}`);
+    socket = new WebSocket(
+      `${protocol}//${window.location.host}/ws?path=${encodeURIComponent(page)}`,
+    );
     socket.onopen = () => {
       retryDelay = MIN_RETRY_MS;
       onStatus(true);

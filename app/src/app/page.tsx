@@ -1,6 +1,6 @@
 import { Preview } from "@/components/preview";
 
-// Served for /page/<bufnr>; the buffer number is read from the URL.
+// Served for /page/<bufnr> and /files/<path>; the page reads which from the URL.
 export default function Page() {
   return <Preview />;
 }

@@ -184,7 +184,7 @@ test.describe("opening the browser", () => {
     await editor.command("MarkdownPreview");
     const opener = process.platform === "darwin" ? "open" : "xdg-open";
     const line = await readWhenPresent(log);
-    expect(line).toMatch(new RegExp(`^${opener} http://localhost:\\d+/page/\\d+$`));
+    expect(line).toMatch(new RegExp(`^${opener} http://localhost:\\d+/files/note\\.md$`));
   });
 
   test("g:mkdp_browser names the browser", async ({ launch }) => {
@@ -196,8 +196,8 @@ test.describe("opening the browser", () => {
     // macOS passes the browser to `open -a`, other systems run it directly
     expect(line).toMatch(
       process.platform === "darwin"
-        ? /^open -a fakebrowser http:\/\/localhost:\d+\/page\/\d+$/
-        : /^fakebrowser http:\/\/localhost:\d+\/page\/\d+$/,
+        ? /^open -a fakebrowser http:\/\/localhost:\d+\/files\/note\.md$/
+        : /^fakebrowser http:\/\/localhost:\d+\/files\/note\.md$/,
     );
   });
 
@@ -207,7 +207,7 @@ test.describe("opening the browser", () => {
     await editor.open("note.md", "# Argv\n");
     await editor.command("MarkdownPreview");
     const line = await readWhenPresent(log);
-    expect(line).toMatch(/^fakebrowser -P work profile http:\/\/localhost:\d+\/page\/\d+$/);
+    expect(line).toMatch(/^fakebrowser -P work profile http:\/\/localhost:\d+\/files\/note\.md$/);
   });
 
   test("a missing browser is reported in the editor", async ({ launch }) => {
@@ -565,8 +565,7 @@ test.describe("g:mkdp_combine_preview", () => {
     editor.write("b.md", `# ${b}\n`);
     await editor.command("edit b.md");
     await expect(body(page).locator("h1")).toContainText(b);
-    const bufnr = await editor.eval<number>("bufnr('%')");
-    await expect(page).toHaveURL(new RegExp(`/page/${bufnr}$`));
+    await expect(page).toHaveURL(/\/files\/b\.md$/);
     // edits to the new buffer show up too
     const typed = token();
     await editor.keys(`Go${typed}<Esc>`);
