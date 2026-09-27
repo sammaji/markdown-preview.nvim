@@ -31,16 +31,20 @@ function lineOffset(line: number, len: number) {
 
   let prev = line - 1;
   let prevElement: HTMLElement | null = null;
-  while (prev > 0 && !(prevElement = lineElement(prev))) prev--;
+  while (prev >= 0 && !(prevElement = lineElement(prev))) prev--;
   let next = line + 1;
   let nextElement: HTMLElement | null = null;
   while (next < len && !(nextElement = lineElement(next))) next++;
 
   const prevTop = prevElement ? pageTop(prevElement) : 0;
-  const nextTop = nextElement ? pageTop(nextElement) : document.documentElement.scrollHeight;
+  const nextTop = nextElement
+    ? pageTop(nextElement)
+    : document.documentElement.scrollHeight;
   prev = Math.max(prev, 0);
   next = Math.min(next, len - 1);
-  return next === prev ? prevTop : prevTop + ((nextTop - prevTop) * (line - prev)) / (next - prev);
+  return next === prev
+    ? prevTop
+    : prevTop + ((nextTop - prevTop) * (line - prev)) / (next - prev);
 }
 
 function scrollToLine(line: number, ratio: number, len: number) {
@@ -49,7 +53,9 @@ function scrollToLine(line: number, ratio: number, len: number) {
   } else if (line >= len - 1) {
     scrollTo(document.documentElement.scrollHeight);
   } else {
-    scrollTo(lineOffset(line, len) - document.documentElement.clientHeight * ratio);
+    scrollTo(
+      lineOffset(line, len) - document.documentElement.clientHeight * ratio,
+    );
   }
 }
 
@@ -65,6 +71,10 @@ export const syncScroll = {
   /** keep the top line of the editor window at the top of the page */
   top({ cursor, winline, len }: CursorPosition) {
     const line = cursor - 1;
-    scrollToLine(line <= 0 || line >= len - 1 ? line : cursor - winline, 0, len);
+    scrollToLine(
+      line <= 0 || line >= len - 1 ? line : cursor - winline,
+      0,
+      len,
+    );
   },
 };
