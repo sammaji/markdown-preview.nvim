@@ -29,6 +29,9 @@
   ([iamcco#55](https://github.com/iamcco/markdown-preview.nvim/issues/55),
   [iamcco#639](https://github.com/iamcco/markdown-preview.nvim/issues/639),
   [iamcco#517](https://github.com/iamcco/markdown-preview.nvim/issues/517)).
+- `require("markdown-preview").setup({ ... })` for Lua configuration, so
+  lazy.nvim's `opts` works
+  ([iamcco#705](https://github.com/iamcco/markdown-preview.nvim/issues/705)).
 - `g:mkdp_on_start` (called with the preview URL) and `g:mkdp_on_stop` hooks.
 - Pre-built binaries for Linux arm64 and FreeBSD x64
   ([iamcco#287](https://github.com/iamcco/markdown-preview.nvim/issues/287),
@@ -52,6 +55,10 @@
 - A port taken on IPv6 (`[::1]`) is skipped. Before, the preview could bind
   the same port on `127.0.0.1` and the browser, trying `localhost` as `::1`
   first, opened the other server.
+- `:MarkdownPreview` and the other commands exist in the first buffer when a
+  plugin manager loads the plugin on its filetype. Options set through
+  `setup()` after the plugin has loaded (`filetypes`, `auto_start`,
+  `command_for_global`, `combine_preview_auto_refresh`) take effect too.
 
 ## v0.1.1
 

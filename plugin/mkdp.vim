@@ -121,34 +121,4 @@ endif
 " if there are any active preview client
 let g:mkdp_clients_active = 0
 
-function! s:init_command() abort
-  command! -buffer MarkdownPreview call mkdp#util#open_preview_page()
-  command! -buffer MarkdownPreviewStop call mkdp#util#stop_preview()
-  command! -buffer MarkdownPreviewToggle call mkdp#util#toggle_preview()
-  " mapping for user
-  noremap <buffer> <silent> <Plug>MarkdownPreview :MarkdownPreview<CR>
-  inoremap <buffer> <silent> <Plug>MarkdownPreview <Esc>:MarkdownPreview<CR>a
-  noremap <buffer> <silent> <Plug>MarkdownPreviewStop :MarkdownPreviewStop<CR>
-  inoremap <buffer> <silent> <Plug>MarkdownPreviewStop <Esc>:MarkdownPreviewStop<CR>a
-  nnoremap <buffer> <silent> <Plug>MarkdownPreviewToggle :MarkdownPreviewToggle<CR>
-  inoremap <buffer> <silent> <Plug>MarkdownPreviewToggle <Esc>:MarkdownPreviewToggle<CR>
-endfunction
-
-function! s:init() abort
-  augroup mkdp_init
-    autocmd!
-    if g:mkdp_command_for_global
-      autocmd BufEnter * :call s:init_command()
-    else
-      autocmd BufEnter,FileType * if index(g:mkdp_filetypes, &filetype) !=# -1 | call s:init_command() | endif
-    endif
-    if g:mkdp_auto_start
-      execute 'autocmd BufEnter *.{md,mkd,mdown,mkdn,mdwn,' . join(g:mkdp_filetypes, ',') . '} call mkdp#util#open_preview_page()'
-    endif
-    if g:mkdp_combine_preview && g:mkdp_combine_preview_auto_refresh
-      execute 'autocmd BufEnter *.{md,mkd,mdown,mkdn,mdwn,' . join(g:mkdp_filetypes, ',') . '} call mkdp#util#combine_preview_refresh()'
-    endif
-  augroup END
-endfunction
-
-call s:init()
+call mkdp#init()
