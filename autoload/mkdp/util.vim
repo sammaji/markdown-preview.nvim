@@ -76,8 +76,26 @@ endfunction
 
 function! mkdp#util#stop_preview() abort
   let g:mkdp_clients_active = 0
+  let l:running = mkdp#rpc#get_server_status() ==# 1
   " TODO: delete autocmd
   call mkdp#rpc#stop_server()
+  if l:running
+    call mkdp#util#call_hook('on_stop')
+  endif
+endfunction
+
+" calls g:mkdp_on_start or g:mkdp_on_stop (a function name, a Funcref or, in
+" Neovim, a Lua function) with a:000, when the user set it
+function! mkdp#util#call_hook(name, ...) abort
+  let l:Hook = get(g:, 'mkdp_' . a:name, '')
+  if type(l:Hook) == v:t_string && l:Hook ==# ''
+    return
+  endif
+  try
+    call call(l:Hook, a:000)
+  catch
+    call mkdp#util#echo_messages('Error', '[markdown-preview.nvim]: g:mkdp_' . a:name . ' failed: ' . v:exception)
+  endtry
 endfunction
 
 " suffix of the released binary for this system, see .github/workflows/release.yml
