@@ -10,7 +10,7 @@ import toc from "markdown-it-toc-done-right";
 import type { PreviewOptions } from "../protocol";
 import alerts from "./alerts";
 import fence from "./fence";
-import frontMatter from "./front-matter";
+import frontMatter, { frontMatterMode } from "./front-matter";
 import images from "./images";
 import katex from "./katex";
 import lineNumbers from "./line-numbers";
@@ -45,8 +45,9 @@ const DEFAULT_MKIT: MarkdownItOptions = {
 export function createRenderer(options: PreviewOptions): MarkdownIt {
   const md = markdownIt({ ...DEFAULT_MKIT, ...options.mkit });
 
-  if ((options.hide_yaml_meta ?? 1) === 1) {
-    md.use(frontMatter);
+  const frontMatterShown = frontMatterMode(options);
+  if (frontMatterShown !== "raw") {
+    md.use(frontMatter, frontMatterShown);
   }
   md.use(katex, { throwOnError: false, errorColor: " #cc0000", ...options.katex })
     .use(plantuml, options.uml)
