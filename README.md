@@ -164,3 +164,13 @@ The documentation is at [mkdp.sammaji.com](https://mkdp.sammaji.com).
 ## Buy me a coffee
 
 [Buy me a coffee](https://buymeacoffee.com/sammaji15)
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=sammaji%2Fmarkdown-preview.nvim&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=sammaji/markdown-preview.nvim&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=sammaji/markdown-preview.nvim&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=sammaji/markdown-preview.nvim&type=date&legend=top-left" />
+ </picture>
+</a>
