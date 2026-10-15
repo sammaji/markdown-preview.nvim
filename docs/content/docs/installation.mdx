@@ -114,6 +114,62 @@ call dein#add('sammaji/markdown-preview.nvim', {
 
 On Windows, use `'build': 'cd app && install.cmd'`.
 
+## nixvim
+
+You can leverage the existing `markdown-preview` plugin, replacing its package with one built from this repository.
+
+```nix
+{ lib, pkgs, ... }:
+let
+  version = "0.2.0";
+  binaryName = "markdown-preview-macos-arm64";
+  # For v2.0.0. Otherwise use `nurl` to regenerate the rev and hash for the latest release.
+  markdownPreviewSrc = pkgs.fetchFromGitHub {
+    owner = "sammaji";
+    repo = "markdown-preview.nvim";
+    rev = "ab85014cff9baadd49d4d9f495720658af64a158";
+    hash = "sha256-qbTlHtcyZxPl/UeMWgpLEi7xSQtmT/pnqp4NQoy2Byo=";
+  };
+  serverArchive = pkgs.fetchurl {
+    url = "https://github.com/sammaji/markdown-preview.nvim/releases/download/v${version}/${binaryName}.tar.gz";
+    hash = lib.fakeHash;
+  };
+  markdownPreview = pkgs.vimUtils.buildVimPlugin {
+    pname = "markdown-preview-sammaji";
+    inherit version;
+    src = markdownPreviewSrc;
+    postInstall = ''
+      mkdir -p "$out/app/bin"
+      tar -xzf ${serverArchive} -C "$out/app/bin"
+      chmod +x "$out/app/bin/${binaryName}"
+    '';
+    doCheck = false;
+  };
+in
+{
+  programs.nixvim = {
+    plugins.markdown-preview = {
+      enable = true;
+      package = markdownPreview;
+
+      settings = {
+        command_for_global = 1;
+      };
+    };
+  };
+}
+```
+
+Upon first build, this will fail because of the `fakeHash` in the `serverArchive`, with an error message containing:
+
+```bash
+error: hash mismatch in fixed-output derivation ...
+  specified: sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+     got:    <actual-hash>
+```
+
+Just replace the `fakeHash` with the actual hash from the error message and rebuild. You'll be good to go.
+
 ## Native packages, without a plugin manager
 
 Clone the plugin into a `start` package directory and download the server
