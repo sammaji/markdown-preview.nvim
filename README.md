@@ -117,10 +117,27 @@ error: hash mismatch in fixed-output derivation ...
 
 Just replace the `fakeHash` with the actual hash from the error message and rebuild. You'll be good to go.
 
+### vim.pack (Neovim 0.12+)
+
+```lua
+vim.api.nvim_create_autocmd("PackChanged", {
+  callback = function(ev)
+    local data = ev.data
+    if data.spec.name == "markdown-preview.nvim" and data.kind ~= "delete" then
+      local cmd = vim.fn.has("win32") == 1 and { "cmd.exe", "/c", "install.cmd" } or { "./install.sh" }
+      vim.system(cmd, { cwd = data.path .. "/app" }):wait()
+    end
+  end,
+})
+
+vim.pack.add({ "https://github.com/sammaji/markdown-preview.nvim" })
+
+require("markdown-preview").setup({})
+```
+
 ### Other plugin managers
 
 - [mini.deps](https://mkdp.sammaji.com/installation#minideps)
-- [vim.pack (Neovim 0.12+)](https://mkdp.sammaji.com/installation#vimpack-neovim-012)
 - [dein.vim](https://mkdp.sammaji.com/installation#deinvim)
 - [Native packages, without a plugin manager](https://mkdp.sammaji.com/installation#native-packages-without-a-plugin-manager)
 - [Moving from iamcco/markdown-preview.nvim](https://mkdp.sammaji.com/installation#moving-from-iamccomarkdown-previewnvim)
