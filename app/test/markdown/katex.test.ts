@@ -8,8 +8,11 @@ function tex(element: Element | null) {
 }
 
 describe("KaTeX", () => {
-  test("renders $inline$ math inside the paragraph", () => {
-    const root = render("Energy $E = mc^2$ here");
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("renders %sinline%s math inside the paragraph", (open, close) => {
+    const root = render(`Energy ${open}E = mc^2${close} here`);
     const p = root.querySelector("p")!;
     const math = p.querySelector(".katex");
     expect(math).not.toBeNull();
@@ -20,8 +23,11 @@ describe("KaTeX", () => {
     expect(p.textContent).not.toContain("$");
   });
 
-  test("renders $$block$$ math in display mode", () => {
-    const root = render("$$\n\\int_0^1 x \\, dx\n$$\n\nafter");
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("renders %sblock%s math in display mode", (open, close) => {
+    const root = render(`${open}\n\\int_0^1 x \\, dx\n${close}\n\nafter`);
     const display = root.querySelector(".katex-display");
     expect(display).not.toBeNull();
     expect(display!.querySelector('math[display="block"]')).not.toBeNull();
@@ -29,13 +35,19 @@ describe("KaTeX", () => {
     expect(root.querySelector("p.source-line")?.textContent).toBe("after");
   });
 
-  test("renders single-line $$block$$ math", () => {
-    const root = render("$$x^2$$");
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("renders single-line %sblock%s math", (open, close) => {
+    const root = render(`${open}x^2${close}`);
     expect(tex(root.querySelector(".katex-display"))).toBe("x^2");
   });
 
-  test("renders $$block$$ math inside a list item", () => {
-    const root = render("- item\n\n  $$\n  y^2\n  $$\n- next");
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("renders %sblock%s math inside a list item", (open, close) => {
+    const root = render(`- item\n\n  ${open}\n  y^2\n  ${close}\n- next`);
     const items = root.querySelectorAll("li");
     expect(items).toHaveLength(2);
     expect(tex(items[0].querySelector(".katex-display"))).toBe("y^2");
@@ -104,5 +116,52 @@ describe("KaTeX", () => {
     const root = render("`$x$`");
     expect(root.querySelector(".katex")).toBeNull();
     expect(root.querySelector("code")?.textContent).toBe("$x$");
+  });
+
+  test("renders parenthesized math with surrounding spaces and a following digit", () => {
+    const root = render(String.raw`a \( x^2 \)2 and \(y + z\)`);
+    const math = root.querySelectorAll(".katex");
+    expect(math).toHaveLength(2);
+    expect(tex(math[0])).toBe("x^2");
+    expect(tex(math[1])).toBe("y + z");
+    expect(root.querySelector(".katex-display")).toBeNull();
+  });
+
+  test("supports dollar and backslash markers in the same document", () => {
+    const root = render(String.raw`$x$ and \(y\)
+
+$$z$$
+
+\[w\]`);
+    expect(Array.from(root.querySelectorAll(".katex"), tex)).toEqual(["x", "y", "z", "w"]);
+    expect(root.querySelectorAll(".katex-display")).toHaveLength(2);
+  });
+
+  test("escaped backslash markers are literal", () => {
+    const root = render(String.raw`\\(x\\) and \\[y\\]`);
+    expect(root.querySelector(".katex")).toBeNull();
+    expect(root.querySelector("p")?.textContent).toBe(String.raw`\(x\) and \[y\]`);
+  });
+
+  test.each([String.raw`\(x`, String.raw`\(x\]`, String.raw`\(\)`])(
+    "leaves unmatched or empty inline markers to Markdown: %s",
+    (src) => {
+      const root = render(src);
+      expect(root.querySelector(".katex")).toBeNull();
+      expect(root.querySelector("p")?.textContent).toBe(src.replaceAll("\\", ""));
+    },
+  );
+
+  test("skips escaped inline closing markers", () => {
+    const root = render(String.raw`\(a \\) b\) after`);
+    expect(tex(root.querySelector(".katex"))).toBe(String.raw`a \\) b`);
+    expect(root.querySelector("p")?.lastChild?.textContent).toBe(" after");
+  });
+
+  test("backslash markers inside code are not math", () => {
+    const root = render("`\\(x\\)`\n\n```tex\n\\[\nx^2\n\\]\n```");
+    expect(root.querySelector(".katex")).toBeNull();
+    expect(root.querySelector("p code")?.textContent).toBe(String.raw`\(x\)`);
+    expect(root.querySelector("pre code")?.textContent).toBe("\\[\nx^2\n\\]\n");
   });
 });

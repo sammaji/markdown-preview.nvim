@@ -1,5 +1,11 @@
 # `sammaji/markdown-preview.nvim` changelog
 
+## Unreleased
+
+#### Added
+- LaTeX-style math delimiters: `\(...\)` for inline formulas and `\[...\]`
+  for display equations, alongside the existing `$...$` and `$$...$$` markers.
+
 ## v0.2.0
 
 #### Security

@@ -77,12 +77,21 @@ Blocks named `mermaid`, `chart`, `dot`, `plantuml`, `flowchart` or
 Math is rendered with [KaTeX](https://katex.org), including chemistry with
 mhchem:
 
+Use `$...$` or `\(...\)` for inline formulas, and `$$...$$` or `\[...\]`
+for display equations. Display markers start at the beginning of a line;
+the equation can be on the same line or span multiple lines. Both styles
+work without configuration and can be mixed in the same document.
+
 ```markdown
-Inline: $E = mc^2$ and $\ce{CO2 + C -> 2 CO}$.
+Inline: $E = mc^2$, \(a^2 + b^2 = c^2\), and $\ce{CO2 + C -> 2 CO}$.
 
 $$
 \int_{-\infty}^{\infty} e^{-x^2} \, dx = \sqrt{\pi}
 $$
+
+\[
+E = mc^2
+\]
 ```
 
 A formula with an error is shown in red instead of breaking the page.
