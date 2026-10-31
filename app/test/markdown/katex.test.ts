@@ -1,5 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { createRenderer } from "@/lib/markdown";
+
 import { render } from "../render";
 
 // the TeX source KaTeX keeps in its MathML annotation
@@ -8,8 +10,11 @@ function tex(element: Element | null) {
 }
 
 describe("KaTeX", () => {
-  test("renders $inline$ math inside the paragraph", () => {
-    const root = render("Energy $E = mc^2$ here");
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("renders %sinline%s math inside the paragraph", (open, close) => {
+    const root = render(`Energy ${open}E = mc^2${close} here`);
     const p = root.querySelector("p")!;
     const math = p.querySelector(".katex");
     expect(math).not.toBeNull();
@@ -20,8 +25,11 @@ describe("KaTeX", () => {
     expect(p.textContent).not.toContain("$");
   });
 
-  test("renders $$block$$ math in display mode", () => {
-    const root = render("$$\n\\int_0^1 x \\, dx\n$$\n\nafter");
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("renders %sblock%s math in display mode", (open, close) => {
+    const root = render(`${open}\n\\int_0^1 x \\, dx\n${close}\n\nafter`);
     const display = root.querySelector(".katex-display");
     expect(display).not.toBeNull();
     expect(display!.querySelector('math[display="block"]')).not.toBeNull();
@@ -29,13 +37,19 @@ describe("KaTeX", () => {
     expect(root.querySelector("p.source-line")?.textContent).toBe("after");
   });
 
-  test("renders single-line $$block$$ math", () => {
-    const root = render("$$x^2$$");
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("renders single-line %sblock%s math", (open, close) => {
+    const root = render(`${open}x^2${close}`);
     expect(tex(root.querySelector(".katex-display"))).toBe("x^2");
   });
 
-  test("renders $$block$$ math inside a list item", () => {
-    const root = render("- item\n\n  $$\n  y^2\n  $$\n- next");
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("renders %sblock%s math inside a list item", (open, close) => {
+    const root = render(`- item\n\n  ${open}\n  y^2\n  ${close}\n- next`);
     const items = root.querySelectorAll("li");
     expect(items).toHaveLength(2);
     expect(tex(items[0].querySelector(".katex-display"))).toBe("y^2");
@@ -104,5 +118,191 @@ describe("KaTeX", () => {
     const root = render("`$x$`");
     expect(root.querySelector(".katex")).toBeNull();
     expect(root.querySelector("code")?.textContent).toBe("$x$");
+  });
+
+  test("renders parenthesized math with surrounding spaces and a following digit", () => {
+    const root = render(String.raw`a \( x^2 \)2 and \(y + z\)`);
+    const math = root.querySelectorAll(".katex");
+    expect(math).toHaveLength(2);
+    expect(tex(math[0])).toBe("x^2");
+    expect(tex(math[1])).toBe("y + z");
+    expect(root.querySelector(".katex-display")).toBeNull();
+  });
+
+  test("supports dollar and backslash markers in the same document", () => {
+    const root = render(String.raw`$x$ and \(y\)
+
+$$z$$
+
+\[w^2\]`);
+    expect(Array.from(root.querySelectorAll(".katex"), tex)).toEqual(["x", "y", "z", "w^2"]);
+    expect(root.querySelectorAll(".katex-display")).toHaveLength(2);
+  });
+
+  test("escaped backslash markers are literal", () => {
+    const root = render(String.raw`\\(x\\) and \\[y\\]`);
+    expect(root.querySelector(".katex")).toBeNull();
+    expect(root.querySelector("p")?.textContent).toBe(String.raw`\(x\) and \[y\]`);
+  });
+
+  test.each([String.raw`\(x`, String.raw`\(x\]`, String.raw`\(\)`])(
+    "leaves unmatched or empty inline markers to Markdown: %s",
+    (src) => {
+      const root = render(src);
+      expect(root.querySelector(".katex")).toBeNull();
+      expect(root.querySelector("p")?.textContent).toBe(src.replaceAll("\\", ""));
+    },
+  );
+
+  test("skips escaped inline closing markers", () => {
+    const root = render(String.raw`\(a \\) b\) after`);
+    expect(tex(root.querySelector(".katex"))).toBe(String.raw`a \\) b`);
+    expect(root.querySelector("p")?.lastChild?.textContent).toBe(" after");
+  });
+
+  test("backslash markers inside code are not math", () => {
+    const root = render("`\\(x\\)`\n\n```tex\n\\[\nx^2\n\\]\n```");
+    expect(root.querySelector(".katex")).toBeNull();
+    expect(root.querySelector("p code")?.textContent).toBe(String.raw`\(x\)`);
+    expect(root.querySelector("pre code")?.textContent).toBe("\\[\nx^2\n\\]\n");
+  });
+
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("does not consume a %s closer beyond the active inline range", (open, close) => {
+    const md = createRenderer({});
+    for (let end = open.length + 1; end < open.length + 1 + close.length; end++) {
+      const state = new md.inline.State(`${open}x${close}`, md, {}, []);
+      state.posMax = end;
+      md.inline.tokenize(state);
+      expect(state.tokens.some((token) => token.type === "math_inline")).toBe(false);
+      expect(state.pos).toBeLessThanOrEqual(end);
+    }
+  });
+
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("does not let %s math consume a link's closing bracket", (open, close) => {
+    const root = render(`[a ${open}x](u) b${close}`);
+    expect(root.querySelector("a")?.getAttribute("href")).toBe("u");
+    expect(root.querySelector("a")?.textContent).toBe(`a ${open.replace("\\", "")}x`);
+    expect(root.querySelector(".katex")).toBeNull();
+    expect(root.querySelector("p")?.lastChild?.textContent).toBe(` b${close.replace("\\", "")}`);
+  });
+
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("renders %s math with balanced brackets inside a link", (open, close) => {
+    for (const formula of ["x^2", "a[b]c"]) {
+      const root = render(`[a ${open}${formula}${close}](u)`);
+      const link = root.querySelector("a");
+      expect(link?.getAttribute("href")).toBe("u");
+      expect(tex(link?.querySelector(".katex") ?? null)).toBe(formula);
+    }
+  });
+
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("keeps escaped closing brackets in %s math inside a link", (open, close) => {
+    const formula = String.raw`a\]b`;
+    const root = render(`[a ${open}${formula}${close}](u)`);
+    const link = root.querySelector("a");
+    expect(link?.getAttribute("href")).toBe("u");
+    expect(link?.querySelector(".katex-error")?.textContent).toBe(formula);
+  });
+
+  test.each(["$$", "\\["])("leaves unclosed %s display math to Markdown without swallowing later blocks", (open) => {
+    const root = render(`${open}\nx^2\n\n# Following heading\n\nFollowing paragraph`);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(root.querySelector("h1")?.textContent?.trim()).toBe("Following heading");
+    expect(Array.from(root.querySelectorAll("p"), (p) => p.textContent)).toEqual([
+      `${open.replace("\\", "")}\nx^2`,
+      "Following paragraph",
+    ]);
+  });
+
+  test.each(["$$", "\\["])("unclosed %s display math does not interrupt a paragraph", (open) => {
+    const root = render(`before\n${open}\nx^2\n\nafter`);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(Array.from(root.querySelectorAll("p"), (p) => p.textContent)).toEqual([
+      `before\n${open.replace("\\", "")}\nx^2`,
+      "after",
+    ]);
+  });
+
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("%s display math cannot close outside its list item", (open, close) => {
+    const root = render(`- item\n\n  ${open}\n  x^2\n\noutside\n${close}\n\n# After`);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(root.querySelector("li")?.textContent).toContain(`${open.replace("\\", "")}\nx^2`);
+    expect(root.querySelector("h1")?.textContent?.trim()).toBe("After");
+  });
+
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("a blank line stops the search for the %s closer", (open, close) => {
+    const root = render(`${open}\na\n\n# Heading\n\n${open}b^2${close}`);
+    expect(root.querySelector("h1")?.textContent?.trim()).toBe("Heading");
+    expect(root.querySelector("p")?.textContent).toBe(`${open.replace("\\", "")}\na`);
+    expect(Array.from(root.querySelectorAll(".katex-display"), tex)).toEqual(["b^2"]);
+  });
+
+  test.each([
+    ["$$ a $$ b $$", "$$ a $$ b $$"],
+    ["$$\nx $$ y\n$$", "$$\nx $$ y\n$$"],
+    ["$$ x $$ y\nz $$", "$$ x $$ y\nz $$"],
+    [String.raw`\[ a \] b \]`, "[ a ] b ]"],
+    ["\\[\nx \\] y\n\\]", "[\nx ] y\n]"],
+    [String.raw`\[\[x\]\]`, "[[x]]"],
+  ])("a closer before the end of a line prevents display math: %s", (src, text) => {
+    const root = render(src);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(root.querySelector("p")?.textContent).toBe(text);
+  });
+
+  test.each(["$$$x$$$", "$$\nx\n\\$$", "\\[\nx\n\\\\]"])(
+    "a closer only at the end of the line still closes: %s",
+    (src) => {
+      const root = render(src);
+      expect(root.querySelector(".katex-display, .katex-error")).not.toBeNull();
+      expect(root.querySelector("p")?.textContent).not.toMatch(/^(\$\$|\[)/);
+    },
+  );
+
+  test.each([
+    [String.raw`\[TODO\]`, "[TODO]"],
+    [String.raw`\[1\]`, "[1]"],
+    [String.raw`\[TODO: fix\]`, "[TODO: fix]"],
+    [String.raw`\[ \]`, "[ ]"],
+    [String.raw`\[\]`, "[]"],
+    ["- \\[x\\]", "[x]"],
+    ["\\[TODO: fix\nthe parser\\]", "[TODO: fix\nthe parser]"],
+    ["\\[todo\nlater\\]", "[todo\nlater]"],
+  ])("escaped brackets around plain text are not math: %s", (src, text) => {
+    const root = render(src);
+    expect(root.querySelector(".katex")).toBeNull();
+    expect(root.textContent?.trim()).toBe(text);
+  });
+
+  test.each([
+    [String.raw`$$1$$`, "1"],
+    [String.raw`\[x+1\]`, "x+1"],
+    ["\\[\nx\n\\]", "x"],
+    ["\\[2\ny\\]", "2\ny"],
+  ])("formulas still render as display math: %s", (src, content) => {
+    expect(tex(render(src).querySelector(".katex-display"))).toBe(content);
+  });
+
+  test.each(["$$", "\\["])("leaves unclosed %s display math as text at the end of the document", (open) => {
+    const root = render(`${open}\nx^2`);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(root.querySelector("p")?.textContent).toBe(`${open.replace("\\", "")}\nx^2`);
   });
 });
