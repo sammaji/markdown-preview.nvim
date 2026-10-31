@@ -254,6 +254,28 @@ $$z$$
     expect(Array.from(root.querySelectorAll(".katex-display"), tex)).toEqual(["b"]);
   });
 
+  test.each([
+    ["$$ a $$ b $$", "$$ a $$ b $$"],
+    ["$$\nx $$ y\n$$", "$$\nx $$ y\n$$"],
+    ["$$ x $$ y\nz $$", "$$ x $$ y\nz $$"],
+    [String.raw`\[ a \] b \]`, "[ a ] b ]"],
+    ["\\[\nx \\] y\n\\]", "[\nx ] y\n]"],
+    [String.raw`\[\[x\]\]`, "[[x]]"],
+  ])("a closer before the end of a line prevents display math: %s", (src, text) => {
+    const root = render(src);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(root.querySelector("p")?.textContent).toBe(text);
+  });
+
+  test.each(["$$$x$$$", "$$\nx\n\\$$", "\\[\nx\n\\\\]"])(
+    "a closer only at the end of the line still closes: %s",
+    (src) => {
+      const root = render(src);
+      expect(root.querySelector(".katex-display, .katex-error")).not.toBeNull();
+      expect(root.querySelector("p")?.textContent).not.toMatch(/^(\$\$|\[)/);
+    },
+  );
+
   test.each(["$$", "\\["])("leaves unclosed %s display math as text at the end of the document", (open) => {
     const root = render(`${open}\nx^2`);
     expect(root.querySelector(".katex-display")).toBeNull();
