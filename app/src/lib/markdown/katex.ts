@@ -61,6 +61,20 @@ function mathInline(state: StateInline, silent: boolean): boolean {
     return true;
   }
 
+  if (silent) {
+    // Do not hide a potential link-label closing bracket inside the math span.
+    let brackets = 0;
+    for (let pos = start; pos < match; pos++) {
+      if (state.src[pos] === "\\") {
+        pos++;
+      } else if (state.src[pos] === "[") {
+        brackets++;
+      } else if (state.src[pos] === "]" && --brackets < 0) {
+        return false;
+      }
+    }
+  }
+
   if (!silent) {
     const token = state.push("math_inline", "math", 0);
     token.markup = open;

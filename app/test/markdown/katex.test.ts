@@ -180,4 +180,38 @@ $$z$$
       expect(state.pos).toBeLessThanOrEqual(end);
     }
   });
+
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("does not let %s math consume a link's closing bracket", (open, close) => {
+    const root = render(`[a ${open}x](u) b${close}`);
+    expect(root.querySelector("a")?.getAttribute("href")).toBe("u");
+    expect(root.querySelector("a")?.textContent).toBe(`a ${open.replace("\\", "")}x`);
+    expect(root.querySelector(".katex")).toBeNull();
+    expect(root.querySelector("p")?.lastChild?.textContent).toBe(` b${close.replace("\\", "")}`);
+  });
+
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("renders %s math with balanced brackets inside a link", (open, close) => {
+    for (const formula of ["x^2", "a[b]c"]) {
+      const root = render(`[a ${open}${formula}${close}](u)`);
+      const link = root.querySelector("a");
+      expect(link?.getAttribute("href")).toBe("u");
+      expect(tex(link?.querySelector(".katex") ?? null)).toBe(formula);
+    }
+  });
+
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("keeps escaped closing brackets in %s math inside a link", (open, close) => {
+    const formula = String.raw`a\]b`;
+    const root = render(`[a ${open}${formula}${close}](u)`);
+    const link = root.querySelector("a");
+    expect(link?.getAttribute("href")).toBe("u");
+    expect(link?.querySelector(".katex-error")?.textContent).toBe(formula);
+  });
 });
