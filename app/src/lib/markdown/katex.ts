@@ -33,6 +33,10 @@ function mathInline(state: StateInline, silent: boolean): boolean {
   const start = state.pos + open.length;
   let match = start;
   while ((match = state.src.indexOf(close, match)) !== -1) {
+    if (match + close.length > state.posMax) {
+      match = -1;
+      break;
+    }
     let pos = match - 1;
     while (state.src[pos] === "\\") pos -= 1;
     if ((match - pos) % 2 === 1) break;

@@ -1,5 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { createRenderer } from "@/lib/markdown";
+
 import { render } from "../render";
 
 // the TeX source KaTeX keeps in its MathML annotation
@@ -163,5 +165,19 @@ $$z$$
     expect(root.querySelector(".katex")).toBeNull();
     expect(root.querySelector("p code")?.textContent).toBe(String.raw`\(x\)`);
     expect(root.querySelector("pre code")?.textContent).toBe("\\[\nx^2\n\\]\n");
+  });
+
+  test.each([
+    ["$", "$"],
+    ["\\(", "\\)"],
+  ])("does not consume a %s closer beyond the active inline range", (open, close) => {
+    const md = createRenderer({});
+    for (let end = open.length + 1; end < open.length + 1 + close.length; end++) {
+      const state = new md.inline.State(`${open}x${close}`, md, {}, []);
+      state.posMax = end;
+      md.inline.tokenize(state);
+      expect(state.tokens.some((token) => token.type === "math_inline")).toBe(false);
+      expect(state.pos).toBeLessThanOrEqual(end);
+    }
   });
 });
