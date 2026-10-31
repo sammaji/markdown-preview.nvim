@@ -1,5 +1,13 @@
 # `sammaji/markdown-preview.nvim` changelog
 
+## Unreleased
+
+#### Added
+- The server binary is also a command line tool: `markdown-preview README.md`
+  previews files without an editor and refreshes the page when a file is
+  saved. The options match the `g:mkdp_*` variables, see
+  `markdown-preview --help`.
+
 ## v0.2.0
 
 #### Security
