@@ -214,4 +214,39 @@ $$z$$
     expect(link?.getAttribute("href")).toBe("u");
     expect(link?.querySelector(".katex-error")?.textContent).toBe(formula);
   });
+
+  test.each(["$$", "\\["])("leaves unclosed %s display math to Markdown without swallowing later blocks", (open) => {
+    const root = render(`${open}\nx^2\n\n# Following heading\n\nFollowing paragraph`);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(root.querySelector("h1")?.textContent?.trim()).toBe("Following heading");
+    expect(Array.from(root.querySelectorAll("p"), (p) => p.textContent)).toEqual([
+      `${open.replace("\\", "")}\nx^2`,
+      "Following paragraph",
+    ]);
+  });
+
+  test.each(["$$", "\\["])("unclosed %s display math does not interrupt a paragraph", (open) => {
+    const root = render(`before\n${open}\nx^2\n\nafter`);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(Array.from(root.querySelectorAll("p"), (p) => p.textContent)).toEqual([
+      `before\n${open.replace("\\", "")}\nx^2`,
+      "after",
+    ]);
+  });
+
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("%s display math cannot close outside its list item", (open, close) => {
+    const root = render(`- item\n\n  ${open}\n  x^2\n\noutside\n${close}\n\n# After`);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(root.querySelector("li")?.textContent).toContain(`${open.replace("\\", "")}\nx^2`);
+    expect(root.querySelector("h1")?.textContent?.trim()).toBe("After");
+  });
+
+  test.each(["$$", "\\["])("leaves unclosed %s display math as text at the end of the document", (open) => {
+    const root = render(`${open}\nx^2`);
+    expect(root.querySelector(".katex-display")).toBeNull();
+    expect(root.querySelector("p")?.textContent).toBe(`${open.replace("\\", "")}\nx^2`);
+  });
 });

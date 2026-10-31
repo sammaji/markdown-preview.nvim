@@ -90,7 +90,6 @@ function mathBlock(state: StateBlock, start: number, end: number, silent: boolea
   const open = state.src.slice(pos, pos + 2);
   if (pos + 2 > max || (open !== "$$" && open !== "\\[")) return false;
   const close = open === "$$" ? "$$" : "\\]";
-  if (silent) return true;
 
   pos += 2;
   let firstLine = state.src.slice(pos, max);
@@ -114,6 +113,10 @@ function mathBlock(state: StateBlock, start: number, end: number, silent: boolea
       found = true;
     }
   }
+
+  // Require a closer even in probe mode so unclosed math cannot swallow Markdown.
+  if (!found) return false;
+  if (silent) return true;
 
   state.line = next + 1;
   const token = state.push("math_block", "math", 0);
