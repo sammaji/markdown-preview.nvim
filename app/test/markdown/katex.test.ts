@@ -134,8 +134,8 @@ describe("KaTeX", () => {
 
 $$z$$
 
-\[w\]`);
-    expect(Array.from(root.querySelectorAll(".katex"), tex)).toEqual(["x", "y", "z", "w"]);
+\[w^2\]`);
+    expect(Array.from(root.querySelectorAll(".katex"), tex)).toEqual(["x", "y", "z", "w^2"]);
     expect(root.querySelectorAll(".katex-display")).toHaveLength(2);
   });
 
@@ -248,10 +248,10 @@ $$z$$
     ["$$", "$$"],
     ["\\[", "\\]"],
   ])("a blank line stops the search for the %s closer", (open, close) => {
-    const root = render(`${open}\na\n\n# Heading\n\n${open}b${close}`);
+    const root = render(`${open}\na\n\n# Heading\n\n${open}b^2${close}`);
     expect(root.querySelector("h1")?.textContent?.trim()).toBe("Heading");
     expect(root.querySelector("p")?.textContent).toBe(`${open.replace("\\", "")}\na`);
-    expect(Array.from(root.querySelectorAll(".katex-display"), tex)).toEqual(["b"]);
+    expect(Array.from(root.querySelectorAll(".katex-display"), tex)).toEqual(["b^2"]);
   });
 
   test.each([
@@ -275,6 +275,30 @@ $$z$$
       expect(root.querySelector("p")?.textContent).not.toMatch(/^(\$\$|\[)/);
     },
   );
+
+  test.each([
+    [String.raw`\[TODO\]`, "[TODO]"],
+    [String.raw`\[1\]`, "[1]"],
+    [String.raw`\[TODO: fix\]`, "[TODO: fix]"],
+    [String.raw`\[ \]`, "[ ]"],
+    [String.raw`\[\]`, "[]"],
+    ["- \\[x\\]", "[x]"],
+    ["\\[TODO: fix\nthe parser\\]", "[TODO: fix\nthe parser]"],
+    ["\\[todo\nlater\\]", "[todo\nlater]"],
+  ])("escaped brackets around plain text are not math: %s", (src, text) => {
+    const root = render(src);
+    expect(root.querySelector(".katex")).toBeNull();
+    expect(root.textContent?.trim()).toBe(text);
+  });
+
+  test.each([
+    [String.raw`$$1$$`, "1"],
+    [String.raw`\[x+1\]`, "x+1"],
+    ["\\[\nx\n\\]", "x"],
+    ["\\[2\ny\\]", "2\ny"],
+  ])("formulas still render as display math: %s", (src, content) => {
+    expect(tex(render(src).querySelector(".katex-display"))).toBe(content);
+  });
 
   test.each(["$$", "\\["])("leaves unclosed %s display math as text at the end of the document", (open) => {
     const root = render(`${open}\nx^2`);
