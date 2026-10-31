@@ -82,6 +82,11 @@ for display equations. Display markers start at the beginning of a line;
 the equation can be on the same line or span multiple lines. Both styles
 work without configuration and can be mixed in the same document.
 
+So that escaped brackets in prose stay text, a `\[...\]` line holding only
+letters, digits, spaces and colons (such as `\[1\]` or `\[TODO: fix\]`),
+or one starting with `TODO`/`todo`, is not treated as math. Use `$$...$$`
+for such formulas.
+
 ```markdown
 Inline: $E = mc^2$, \(a^2 + b^2 = c^2\), and $\ce{CO2 + C -> 2 CO}$.
 

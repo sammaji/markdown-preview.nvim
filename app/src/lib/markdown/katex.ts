@@ -101,6 +101,8 @@ function mathBlock(state: StateBlock, start: number, end: number, silent: boolea
     return (text.endsWith(close) ? text.slice(0, -2) : text).includes(close);
   };
   if (strayCloser(firstLine)) return false;
+  // Escaped brackets in prose, e.g. `\[1\]`, `\[TODO: fix\]` or `\[TODO ...`, are not math.
+  if (open === "\\[" && /^(TODO|todo|[A-Za-z0-9 :]*\\\]$)/.test(firstLine.trim())) return false;
   if (firstLine.trim().slice(-2) === close) {
     firstLine = firstLine.trim().slice(0, -2);
     found = true;
