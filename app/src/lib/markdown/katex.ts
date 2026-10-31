@@ -103,7 +103,8 @@ function mathBlock(state: StateBlock, start: number, end: number, silent: boolea
   let next = start;
   while (!found) {
     next++;
-    if (next >= end) break;
+    // a blank line ends the search, as TeX forbids paragraph breaks in math
+    if (next >= end || state.isEmpty(next)) break;
     pos = state.bMarks[next] + state.tShift[next];
     max = state.eMarks[next];
     // a non-empty line with negative indent ends the enclosing list

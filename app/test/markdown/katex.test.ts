@@ -244,6 +244,16 @@ $$z$$
     expect(root.querySelector("h1")?.textContent?.trim()).toBe("After");
   });
 
+  test.each([
+    ["$$", "$$"],
+    ["\\[", "\\]"],
+  ])("a blank line stops the search for the %s closer", (open, close) => {
+    const root = render(`${open}\na\n\n# Heading\n\n${open}b${close}`);
+    expect(root.querySelector("h1")?.textContent?.trim()).toBe("Heading");
+    expect(root.querySelector("p")?.textContent).toBe(`${open.replace("\\", "")}\na`);
+    expect(Array.from(root.querySelectorAll(".katex-display"), tex)).toEqual(["b"]);
+  });
+
   test.each(["$$", "\\["])("leaves unclosed %s display math as text at the end of the document", (open) => {
     const root = render(`${open}\nx^2`);
     expect(root.querySelector(".katex-display")).toBeNull();
