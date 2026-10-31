@@ -95,6 +95,12 @@ function mathBlock(state: StateBlock, start: number, end: number, silent: boolea
   let firstLine = state.src.slice(pos, max);
   let lastLine = "";
   let found = false;
+  // A closer anywhere but at the end of a line, even escaped, means this is not a display block.
+  const strayCloser = (line: string) => {
+    const text = line.trim();
+    return (text.endsWith(close) ? text.slice(0, -2) : text).includes(close);
+  };
+  if (strayCloser(firstLine)) return false;
   if (firstLine.trim().slice(-2) === close) {
     firstLine = firstLine.trim().slice(0, -2);
     found = true;
@@ -109,6 +115,7 @@ function mathBlock(state: StateBlock, start: number, end: number, silent: boolea
     max = state.eMarks[next];
     // a non-empty line with negative indent ends the enclosing list
     if (pos < max && state.tShift[next] < state.blkIndent) break;
+    if (strayCloser(state.src.slice(pos, max))) return false;
     if (state.src.slice(pos, max).trim().slice(-2) === close) {
       lastLine = state.src.slice(pos, state.src.slice(0, max).lastIndexOf(close));
       found = true;
