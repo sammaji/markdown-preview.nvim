@@ -180,6 +180,23 @@ Each command has a `<Plug>` mapping of the same name, e.g.
 To see every feature, open [`examples/features.md`](examples/features.md) and
 preview it. See [Quickstart](https://mkdp.sammaji.com/quickstart).
 
+## Command line
+
+The server binary also previews files without an editor. Save the file in any
+editor and the page refreshes:
+
+```sh
+markdown-preview README.md
+markdown-preview --theme dark --no-browser docs/*.md
+```
+
+Get the binary from the plugin (`app/bin/` after install, or
+`target/release/` after a build), from the
+[releases](https://github.com/sammaji/markdown-preview.nvim/releases), or with
+`cargo install --git https://github.com/sammaji/markdown-preview.nvim`. The
+options match the `g:mkdp_*` variables; `markdown-preview --help` lists them.
+See [Command line](https://mkdp.sammaji.com/features/cli).
+
 ## Configuration
 
 In Neovim, pass options to `setup()`, or to lazy.nvim's `opts`, named like the
@@ -229,7 +246,8 @@ The documentation is at [mkdp.sammaji.com](https://mkdp.sammaji.com).
 - [Live preview](https://mkdp.sammaji.com/features/live-preview),
   [Markdown](https://mkdp.sammaji.com/features/markdown), [Diagrams](https://mkdp.sammaji.com/features/diagrams),
   [Theming](https://mkdp.sammaji.com/features/themes),
-  [Browser and sharing](https://mkdp.sammaji.com/features/browser).
+  [Browser and sharing](https://mkdp.sammaji.com/features/browser),
+  [Command line](https://mkdp.sammaji.com/features/cli).
 - [Configuration reference](https://mkdp.sammaji.com/configuration).
 - [FAQ](https://mkdp.sammaji.com/faq).
 - [Contributing](https://mkdp.sammaji.com/contributing).

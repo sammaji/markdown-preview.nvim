@@ -1,0 +1,64 @@
+---
+title: Command line
+description: Preview markdown files from the shell, without Vim or Neovim.
+---
+
+The binary the plugin runs is also a command line tool. Give it one or more
+markdown files and it opens their preview, refreshing the page whenever a file
+is saved, by any editor:
+
+```sh
+markdown-preview README.md
+```
+
+It serves the same page as the plugin: diagrams, math, themes and local images
+all work. It runs until you stop it with `Ctrl-C`.
+
+## Getting the binary
+
+- From the plugin: `app/bin/markdown-preview-<platform>` once the plugin has
+  downloaded it, or `target/release/markdown-preview` after
+  `cargo build --release`.
+- From the [releases](https://github.com/sammaji/markdown-preview.nvim/releases)
+  page, for Linux, macOS, Windows and FreeBSD.
+- With cargo, which needs Node.js 20.9+ with pnpm or npx to build the page:
+
+  ```sh
+  cargo install --git https://github.com/sammaji/markdown-preview.nvim
+  ```
+
+## Options
+
+The options set the `g:mkdp_*` variable of the same name, see the
+[configuration reference](../configuration.mdx) for what each does.
+
+| Option                     | Variable                |
+| -------------------------- | ----------------------- |
+| `--port <PORT>`            | `g:mkdp_port`           |
+| `--open-to-the-world`      | `g:mkdp_open_to_the_world` |
+| `--open-ip <HOST>`         | `g:mkdp_open_ip`        |
+| `--browser <BROWSER>`      | `g:mkdp_browser`        |
+| `--no-browser`             | only prints the URL     |
+| `--theme <light\|dark>`    | `g:mkdp_theme`          |
+| `--markdown-css <FILE>`    | `g:mkdp_markdown_css`   |
+| `--highlight-css <FILE>`   | `g:mkdp_highlight_css`  |
+| `--theme-css <FILE>`       | `g:mkdp_theme_css`      |
+| `--images-path <DIR>`      | `g:mkdp_images_path`    |
+| `--page-title <TITLE>`     | `g:mkdp_page_title`     |
+| `--preview-options <JSON>` | `g:mkdp_preview_options` |
+
+`--preview-options` takes a JSON object, merged into the defaults:
+
+```sh
+markdown-preview --preview-options '{"front_matter": "panel"}' notes.md
+```
+
+The preview URL is always printed. Options also take the form `--port=8080`.
+
+## Differences from the plugin
+
+- There is no cursor, so the page doesn't follow one: it keeps its scroll
+  position when the file changes.
+- The page refreshes when the file is saved, not as you type.
+- Links to other markdown files under the current directory open their preview,
+  as in the plugin, but only the files given on the command line refresh.

@@ -1,4 +1,4 @@
 {
   "title": "Features",
-  "pages": ["live-preview", "markdown", "diagrams", "themes", "browser"]
+  "pages": ["live-preview", "markdown", "diagrams", "themes", "browser", "cli"]
 }
