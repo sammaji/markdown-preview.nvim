@@ -2,7 +2,7 @@
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$proxy = @($env:HTTPS_PROXY, $env:HTTP_PROXY, $env:ALL_PROXY) | Where-Object { $_ } | Select-Object -First 1
+$proxy = @($env:HTTPS_PROXY, $env:HTTP_PROXY, $env:ALL_PROXY) | Where-Object { $_ -and $_ -notmatch '^socks' } | Select-Object -First 1
 if ($proxy) { $PSDefaultParameterValues["Invoke-WebRequest:Proxy"] = $proxy }
 
 $repo = "sammaji/markdown-preview.nvim"

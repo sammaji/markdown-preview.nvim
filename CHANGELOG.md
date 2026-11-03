@@ -4,8 +4,8 @@
 
 #### Fixed
 - `install.cmd` downloads through the proxy set in `HTTPS_PROXY`, `HTTP_PROXY`
-  or `ALL_PROXY`, like `install.sh` already does. Before, it ignored them and
-  the download failed on Windows behind a proxy.
+  or `ALL_PROXY` (SOCKS proxies are skipped, PowerShell can't use them). Before,
+  it ignored them and the download failed on Windows behind a proxy.
 
 ## v0.2.0
 
