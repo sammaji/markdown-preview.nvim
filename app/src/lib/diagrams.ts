@@ -10,6 +10,137 @@ export type Theme = "light" | "dark";
 
 let charts: Chart[] = [];
 
+// Placeholders drawn as SVG. Their source text is much shorter than the
+// drawing, so redrawing them on every refresh made the page shrink and grow
+// again, causing a layout shift.
+const SVG_DIAGRAMS = ".mermaid, div.dot, div.flowchart, div.sequence-diagrams";
+
+// what each diagram was drawn from, read before its source is replaced
+const drawnFrom = new WeakMap<Element, string>();
+
+/** Everything besides its source that a drawing depends on. */
+function drawingStyle(options: PreviewOptions, theme: Theme) {
+  return JSON.stringify([
+    theme,
+    options.maid,
+    options.flowchart_diagrams,
+    options.sequence_diagrams,
+    // the colors read from the page, which a custom theme can change
+    options.maid?.theme ? null : mermaidTheme(theme),
+  ]);
+}
+
+// the placeholder's tag, attributes and source, read before it is drawn
+function drawingKey(node: HTMLElement, style: string) {
+  return `${style}\n${node.outerHTML}`;
+}
+
+function markDrawn(node: HTMLElement) {
+  node.dataset.drawn = "";
+}
+
+// edited diagrams, drawn out of sight, with the previous drawing shown in
+// their place until they are done and their own style attribute
+const outdated = new Map<
+  HTMLElement,
+  { old: HTMLElement; style: string | null }
+>();
+
+/** Shows an edited diagram again, returning its previous drawing. */
+function unhide(node: HTMLElement) {
+  const entry = outdated.get(node);
+  if (!entry) return undefined;
+  outdated.delete(node);
+  if (entry.style === null) node.removeAttribute("style");
+  else node.setAttribute("style", entry.style);
+  return entry.old;
+}
+
+function kind(node: HTMLElement) {
+  return node.classList[0];
+}
+
+// Takes a diagram of the previous page into the next one. A refresh can come
+// while an edited diagram is still being drawn: its previous drawing and the
+// drawing in progress both stop being outdated or hidden.
+function take(node: HTMLElement) {
+  delete node.dataset.outdated;
+  unhide(node);
+  for (const [edited, { old }] of outdated) {
+    if (old === node) outdated.delete(edited);
+  }
+  return node;
+}
+
+/** The diagrams of `root` that are drawn, to pass to `reuseDiagrams`. */
+export function drawnDiagrams(root: HTMLElement): HTMLElement[] {
+  // a previous drawing whose replacement is already drawn is not needed
+  const replaced = new Set(
+    [...outdated]
+      .filter(([edited]) => edited.dataset.drawn !== undefined)
+      .map(([, { old }]) => old),
+  );
+  return [...root.querySelectorAll<HTMLElement>("[data-drawn]")].filter(
+    (node) => !replaced.has(node),
+  );
+}
+
+/**
+ * Moves the `drawn` diagrams of the previous page in place of the
+ * placeholders of `root` with the same source, theme and options, so the
+ * page has its final height right away and they are not drawn again.
+ */
+export function reuseDiagrams(
+  root: HTMLElement,
+  drawn: HTMLElement[],
+  options: PreviewOptions,
+  theme: Theme,
+) {
+  const byKey = new Map<string, HTMLElement[]>();
+  for (const node of drawn) {
+    const key = drawnFrom.get(node);
+    if (key !== undefined) byKey.set(key, [...(byKey.get(key) ?? []), node]);
+  }
+  const style = drawingStyle(options, theme);
+  const unused = new Set(drawn);
+  const edited: HTMLElement[] = [];
+  const placeholders = [...root.querySelectorAll<HTMLElement>(SVG_DIAGRAMS)];
+  for (const node of placeholders) {
+    const key = drawingKey(node, style);
+    // before it is hidden below, which changes its attributes
+    drawnFrom.set(node, key);
+    const old = byKey.get(key)?.shift();
+    if (old) {
+      node.replaceWith(take(old));
+      unused.delete(old);
+    } else {
+      edited.push(node);
+    }
+  }
+
+  // An edited diagram keeps showing its previous drawing, the one at the same
+  // place among the diagrams of its kind, while it is drawn out of sight.
+  // When diagrams of that kind were added or removed, which drawing was this
+  // diagram's is unknown, so it gets none.
+  for (const node of edited) {
+    const now = placeholders.filter((p) => kind(p) === kind(node));
+    const before = drawn.filter((d) => kind(d) === kind(node));
+    if (now.length !== before.length) continue;
+    const old = before[now.indexOf(node)];
+    if (!unused.delete(old)) continue;
+    node.before(take(old));
+    old.dataset.outdated = "";
+    outdated.set(node, { old, style: node.getAttribute("style") });
+    node.style.cssText = `position: absolute; visibility: hidden; height: 0; overflow: hidden; width: ${old.offsetWidth}px`;
+  }
+}
+
+/** Puts edited diagrams in place of their previous drawing. */
+function swapOutdated(nodes: HTMLElement[]) {
+  // a node that failed to draw is already replaced by its error
+  for (const node of nodes) unhide(node)?.remove();
+}
+
 export async function renderDiagrams(
   root: HTMLElement,
   options: PreviewOptions,
@@ -19,13 +150,27 @@ export async function renderDiagrams(
   charts.forEach((chart) => chart.destroy());
   charts = [];
 
-  await Promise.all([
-    renderMermaid(root, options, theme),
-    renderCharts(root),
-    renderFlowcharts(root, options),
-    renderSequenceDiagrams(root, options),
-    renderDot(root),
-  ]);
+  const undrawn = [
+    ...root.querySelectorAll<HTMLElement>(
+      `:is(${SVG_DIAGRAMS}):not([data-drawn])`,
+    ),
+  ];
+  const style = drawingStyle(options, theme);
+  for (const node of undrawn) {
+    if (!drawnFrom.has(node)) drawnFrom.set(node, drawingKey(node, style));
+  }
+
+  try {
+    await Promise.all([
+      renderMermaid(root, options, theme),
+      renderCharts(root),
+      renderFlowcharts(root, options),
+      renderSequenceDiagrams(root, options),
+      renderDot(root),
+    ]);
+  } finally {
+    swapOutdated(undrawn);
+  }
 }
 
 function showError(element: Element, kind: string, error: unknown) {
@@ -161,9 +306,12 @@ function mermaidTheme(theme: Theme): MermaidConfig {
 }
 
 let lastGoodMermaid: string[] = [];
+let lastMermaidCount = 0;
 
 export function forgetDiagrams() {
   lastGoodMermaid = [];
+  lastMermaidCount = 0;
+  outdated.clear();
 }
 
 async function renderMermaid(
@@ -171,7 +319,9 @@ async function renderMermaid(
   options: PreviewOptions,
   theme: Theme,
 ) {
-  const nodes = [...root.querySelectorAll<HTMLElement>(".mermaid")];
+  const nodes = [
+    ...root.querySelectorAll<HTMLElement>(".mermaid:not([data-outdated])"),
+  ];
   if (nodes.length === 0) return;
   const { default: mermaid } = await import("mermaid");
   mermaid.initialize({
@@ -180,12 +330,23 @@ async function renderMermaid(
     ...(options.maid?.theme ? {} : mermaidTheme(theme)),
     ...options.maid,
   });
-  const good = lastGoodMermaid.slice(0, nodes.length);
+  // drawings are paired with diagrams by place, which only holds while no
+  // diagram was added or removed
+  const good = nodes.length === lastMermaidCount ? [...lastGoodMermaid] : [];
   lastGoodMermaid = good;
+  lastMermaidCount = nodes.length;
   for (const [index, node] of nodes.entries()) {
+    // replaced by a newer refresh while this one was drawing
+    if (!root.contains(node)) continue;
+    if (node.dataset.drawn !== undefined) {
+      good[index] =
+        node.querySelector(":scope > svg")?.outerHTML ?? good[index];
+      continue;
+    }
     try {
       await mermaid.run({ nodes: [node] });
       good[index] = node.innerHTML;
+      markDrawn(node);
       addViewerButton(node);
     } catch (error) {
       const svg = good[index];
@@ -240,7 +401,9 @@ async function renderCharts(root: HTMLElement) {
 }
 
 async function renderFlowcharts(root: HTMLElement, options: PreviewOptions) {
-  const nodes = [...root.querySelectorAll<HTMLElement>("div.flowchart")];
+  const nodes = [
+    ...root.querySelectorAll<HTMLElement>("div.flowchart:not([data-drawn])"),
+  ];
   if (nodes.length === 0) return;
   const flowchart = await import("flowchart.js");
   for (const node of nodes) {
@@ -248,6 +411,7 @@ async function renderFlowcharts(root: HTMLElement, options: PreviewOptions) {
       const chart = flowchart.parse(node.textContent ?? "");
       node.textContent = "";
       chart.drawSVG(node, options.flowchart_diagrams);
+      markDrawn(node);
     } catch (error) {
       showError(node, "Flowchart", error);
     }
@@ -255,13 +419,16 @@ async function renderFlowcharts(root: HTMLElement, options: PreviewOptions) {
 }
 
 async function renderDot(root: HTMLElement) {
-  const nodes = [...root.querySelectorAll<HTMLElement>("div.dot")];
+  const nodes = [
+    ...root.querySelectorAll<HTMLElement>("div.dot:not([data-drawn])"),
+  ];
   if (nodes.length === 0) return;
   const { instance } = await import("@viz-js/viz");
   const viz = await instance();
   for (const node of nodes) {
     try {
       node.replaceChildren(viz.renderSVGElement(node.textContent ?? ""));
+      markDrawn(node);
     } catch (error) {
       showError(node, "Graphviz", error);
     }
@@ -312,7 +479,9 @@ async function renderSequenceDiagrams(
   options: PreviewOptions,
 ) {
   const nodes = [
-    ...root.querySelectorAll<HTMLElement>("div.sequence-diagrams"),
+    ...root.querySelectorAll<HTMLElement>(
+      "div.sequence-diagrams:not([data-drawn])",
+    ),
   ];
   if (nodes.length === 0) return;
   const Diagram = await loadSequenceLibrary();
@@ -321,6 +490,7 @@ async function renderSequenceDiagrams(
       const diagram = Diagram.parse(node.textContent ?? "");
       node.textContent = "";
       diagram.drawSVG(node, { theme: "hand", ...options.sequence_diagrams });
+      markDrawn(node);
     } catch (error) {
       showError(node, "Sequence diagram", error);
     }

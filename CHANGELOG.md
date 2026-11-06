@@ -1,5 +1,15 @@
 # `sammaji/markdown-preview.nvim` changelog
 
+## Unreleased
+
+#### Fixed
+- The page no longer scrolls up and back down on a refresh when the cursor is
+  below a diagram
+  ([#40](https://github.com/sammaji/markdown-preview.nvim/issues/40)).
+
+#### Authors
+- [@sammaji](https://github.com/sammaji)
+
 ## v0.2.0
 
 #### Security
