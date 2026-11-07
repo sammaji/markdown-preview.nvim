@@ -1,4 +1,4 @@
-// $inline$ and $$block$$ math rendered with KaTeX.
+// $inline$, \(inline\), $$block$$ and \[block\] math rendered with KaTeX.
 // Forked from https://github.com/waylonflinn/markdown-it-katex
 import katex, { type KatexOptions } from "katex";
 import "katex/contrib/mhchem";
@@ -19,18 +19,24 @@ function delimiterAt(state: StateInline, pos: number) {
 }
 
 function mathInline(state: StateInline, silent: boolean): boolean {
-  if (state.src[state.pos] !== "$") return false;
+  const open = state.src.startsWith("\\(", state.pos) ? "\\(" : "$";
+  const close = open === "$" ? "$" : "\\)";
+  if (!state.src.startsWith(open, state.pos)) return false;
 
-  if (!delimiterAt(state, state.pos).canOpen) {
+  if (open === "$" && !delimiterAt(state, state.pos).canOpen) {
     if (!silent) state.pending += "$";
     state.pos += 1;
     return true;
   }
 
-  // find the closing `$`, skipping escaped ones
-  const start = state.pos + 1;
+  // Find the matching closing marker, skipping escaped ones.
+  const start = state.pos + open.length;
   let match = start;
-  while ((match = state.src.indexOf("$", match)) !== -1) {
+  while ((match = state.src.indexOf(close, match)) !== -1) {
+    if (match + close.length > state.posMax) {
+      match = -1;
+      break;
+    }
     let pos = match - 1;
     while (state.src[pos] === "\\") pos -= 1;
     if ((match - pos) % 2 === 1) break;
@@ -38,41 +44,66 @@ function mathInline(state: StateInline, silent: boolean): boolean {
   }
 
   if (match === -1) {
+    if (open !== "$") return false;
     if (!silent) state.pending += "$";
     state.pos = start;
     return true;
   }
   if (match === start) {
+    if (open !== "$") return false;
     if (!silent) state.pending += "$$";
     state.pos = start + 1;
     return true;
   }
-  if (!delimiterAt(state, match).canClose) {
+  if (open === "$" && !delimiterAt(state, match).canClose) {
     if (!silent) state.pending += "$";
     state.pos = start;
     return true;
   }
 
+  if (silent) {
+    // Do not hide a potential link-label closing bracket inside the math span.
+    let brackets = 0;
+    for (let pos = start; pos < match; pos++) {
+      if (state.src[pos] === "\\") {
+        pos++;
+      } else if (state.src[pos] === "[") {
+        brackets++;
+      } else if (state.src[pos] === "]" && --brackets < 0) {
+        return false;
+      }
+    }
+  }
+
   if (!silent) {
     const token = state.push("math_inline", "math", 0);
-    token.markup = "$";
+    token.markup = open;
     token.content = state.src.slice(start, match);
   }
-  state.pos = match + 1;
+  state.pos = match + close.length;
   return true;
 }
 
 function mathBlock(state: StateBlock, start: number, end: number, silent: boolean): boolean {
   let pos = state.bMarks[start] + state.tShift[start];
   let max = state.eMarks[start];
-  if (pos + 2 > max || state.src.slice(pos, pos + 2) !== "$$") return false;
-  if (silent) return true;
+  const open = state.src.slice(pos, pos + 2);
+  if (pos + 2 > max || (open !== "$$" && open !== "\\[")) return false;
+  const close = open === "$$" ? "$$" : "\\]";
 
   pos += 2;
   let firstLine = state.src.slice(pos, max);
   let lastLine = "";
   let found = false;
-  if (firstLine.trim().slice(-2) === "$$") {
+  // A closer anywhere but at the end of a line, even escaped, means this is not a display block.
+  const strayCloser = (line: string) => {
+    const text = line.trim();
+    return (text.endsWith(close) ? text.slice(0, -2) : text).includes(close);
+  };
+  if (strayCloser(firstLine)) return false;
+  // Escaped brackets in prose, e.g. `\[1\]`, `\[TODO: fix\]` or `\[TODO ...`, are not math.
+  if (open === "\\[" && /^(TODO|todo|[A-Za-z0-9 :]*\\\]$)/.test(firstLine.trim())) return false;
+  if (firstLine.trim().slice(-2) === close) {
     firstLine = firstLine.trim().slice(0, -2);
     found = true;
   }
@@ -80,16 +111,22 @@ function mathBlock(state: StateBlock, start: number, end: number, silent: boolea
   let next = start;
   while (!found) {
     next++;
-    if (next >= end) break;
+    // a blank line ends the search, as TeX forbids paragraph breaks in math
+    if (next >= end || state.isEmpty(next)) break;
     pos = state.bMarks[next] + state.tShift[next];
     max = state.eMarks[next];
     // a non-empty line with negative indent ends the enclosing list
     if (pos < max && state.tShift[next] < state.blkIndent) break;
-    if (state.src.slice(pos, max).trim().slice(-2) === "$$") {
-      lastLine = state.src.slice(pos, state.src.slice(0, max).lastIndexOf("$$"));
+    if (strayCloser(state.src.slice(pos, max))) return false;
+    if (state.src.slice(pos, max).trim().slice(-2) === close) {
+      lastLine = state.src.slice(pos, state.src.slice(0, max).lastIndexOf(close));
       found = true;
     }
   }
+
+  // Require a closer even in probe mode so unclosed math cannot swallow Markdown.
+  if (!found) return false;
+  if (silent) return true;
 
   state.line = next + 1;
   const token = state.push("math_block", "math", 0);
@@ -99,7 +136,7 @@ function mathBlock(state: StateBlock, start: number, end: number, silent: boolea
     state.getLines(start + 1, next, state.tShift[start], true) +
     (lastLine.trim() ? lastLine : "");
   token.map = [start, state.line];
-  token.markup = "$$";
+  token.markup = open;
   return true;
 }
 
@@ -113,7 +150,8 @@ export default function katexPlugin(md: MarkdownIt, options: KatexOptions = {}) 
     }
   };
 
-  md.inline.ruler.after("escape", "math_inline", mathInline);
+  // Recognize \( before Markdown consumes the backslash as an escape.
+  md.inline.ruler.before("escape", "math_inline", mathInline);
   md.block.ruler.after("blockquote", "math_block", mathBlock, {
     alt: ["paragraph", "reference", "blockquote", "list"],
   });
