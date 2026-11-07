@@ -24,8 +24,12 @@ pub enum Incoming {
 
 type Pending = Mutex<HashMap<i64, oneshot::Sender<Result<Value, String>>>>;
 
+/// Answers requests in process instead of over stdio, see [`Editor::local`].
+pub type Handler = dyn Fn(&str, Vec<Value>) -> Result<Value, String> + Send + Sync;
+
 struct Inner {
     kind: Kind,
+    local: Option<Box<Handler>>,
     writer: Mutex<Box<dyn Write + Send>>,
     pending: Pending,
     next_id: AtomicI64,
@@ -58,7 +62,22 @@ impl Editor {
     pub fn new(kind: Kind, writer: Box<dyn Write + Send>) -> Editor {
         Editor(Arc::new(Inner {
             kind,
+            local: None,
             writer: Mutex::new(writer),
+            pending: Mutex::new(HashMap::new()),
+            next_id: AtomicI64::new(1),
+        }))
+    }
+
+    /// An editor that is not a separate process: `handler` answers every
+    /// request, as the standalone CLI does with files on disk.
+    pub fn local(
+        handler: impl Fn(&str, Vec<Value>) -> Result<Value, String> + Send + Sync + 'static,
+    ) -> Editor {
+        Editor(Arc::new(Inner {
+            kind: Kind::Nvim,
+            local: Some(Box::new(handler)),
+            writer: Mutex::new(Box::new(io::sink())),
             pending: Mutex::new(HashMap::new()),
             next_id: AtomicI64::new(1),
         }))
@@ -185,6 +204,9 @@ impl Editor {
 
     /// Calls an `nvim_*` API method and waits for the result.
     pub async fn request(&self, method: &str, args: Vec<Value>) -> Result<Value, String> {
+        if let Some(handler) = &self.0.local {
+            return handler(method, args);
+        }
         let (tx, rx) = oneshot::channel();
         let seq = self.0.next_id.fetch_add(1, Ordering::Relaxed);
         match self.0.kind {
@@ -212,6 +234,9 @@ impl Editor {
 
     /// Replies to a request from the editor with `nil`.
     pub fn respond(&self, id: i64) {
+        if self.0.local.is_some() {
+            return;
+        }
         match self.0.kind {
             Kind::Nvim => self.write_msgpack(rmpv::Value::Array(vec![
                 1.into(),
