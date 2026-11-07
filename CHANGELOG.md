@@ -8,6 +8,11 @@
   Escaped brackets around plain text, such as `\[1\]` or `\[TODO: fix\]`,
   stay text.
 
+#### Fixed
+- `install.cmd` downloads through the proxy set in `HTTPS_PROXY`, `HTTP_PROXY`
+  or `ALL_PROXY` (SOCKS proxies are skipped, PowerShell can't use them). Before,
+  it ignored them and the download failed on Windows behind a proxy.
+
 ## v0.2.0
 
 #### Security
