@@ -6,8 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { connect } from "@/lib/connection";
 import { replaceKeepingDetails } from "@/lib/details";
 import {
+  drawnDiagrams,
   forgetDiagrams,
   renderDiagrams,
+  reuseDiagrams,
   themeColors,
   type Theme,
 } from "@/lib/diagrams";
@@ -43,6 +45,23 @@ export function displayName(path: string): string {
   const base = path.split(/[\\/]/).pop() ?? "";
   const dot = base.lastIndexOf(".");
   return dot > 0 ? base.slice(0, dot) : base;
+}
+
+export async function drawPage(
+  body: HTMLElement,
+  html: string,
+  options: PreviewOptions,
+  theme: Theme,
+  scroll: () => void,
+) {
+  const drawn = drawnDiagrams(body);
+
+  replaceKeepingDetails(body, html);
+  reuseDiagrams(body, drawn, options, theme);
+  scroll();
+
+  await renderDiagrams(body, options, theme);
+  scroll();
 }
 
 function systemTheme(): Theme {
@@ -102,14 +121,13 @@ export function Preview() {
     if (!body || !md.current || source.current === undefined) return;
     // diagrams read the theme's colors, so it must be in place before them
     applyTheme(theme);
-    replaceKeepingDetails(
+    await drawPage(
       body,
       md.current.render(source.current, { umlColors: umlColors() }),
+      options.current,
+      theme,
+      () => lastScroll.current?.(),
     );
-    lastScroll.current?.();
-    await renderDiagrams(body, options.current, theme);
-    // diagrams change the height of the page
-    lastScroll.current?.();
   }, []);
 
   const onRefresh = useCallback(
