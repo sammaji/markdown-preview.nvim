@@ -199,6 +199,10 @@ Without an argument, `install.sh` and `install.cmd` download the binary that
 matches the plugin's version. Run them again after `git pull`, or let
 `:MarkdownPreview` do it.
 
+Behind a proxy, set `https_proxy` (for example `http://proxy.example.com:8080`)
+before installing. Both scripts use it, including when `:MarkdownPreview`
+downloads the binary.
+
 ## Building from source
 
 Build the server yourself on a system without a pre-built binary, or to run

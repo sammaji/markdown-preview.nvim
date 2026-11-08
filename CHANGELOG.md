@@ -2,7 +2,17 @@
 
 ## Unreleased
 
+#### Added
+- LaTeX-style math delimiters: `\(...\)` for inline formulas and `\[...\]`
+  for display equations, alongside the existing `$...$` and `$$...$$` markers.
+  Escaped brackets around plain text, such as `\[1\]` or `\[TODO: fix\]`,
+  stay text.
+
 #### Fixed
+- `install.cmd` downloads through the proxy set in `HTTPS_PROXY`, `HTTP_PROXY`
+  or `ALL_PROXY` (SOCKS proxies are skipped, PowerShell can't use them). Before,
+  it ignored them and the download failed on Windows behind a proxy.
+
 - The page no longer scrolls up and back down on a refresh when the cursor is
   below a diagram
   ([#40](https://github.com/sammaji/markdown-preview.nvim/issues/40)).
