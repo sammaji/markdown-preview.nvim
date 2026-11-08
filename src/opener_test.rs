@@ -83,6 +83,21 @@ fn named_browser() {
 }
 
 #[test]
+fn cmd_line_keeps_starts_empty_title_and_quotes_names_with_spaces() {
+    let chrome = Browser::Name("Google Chrome".into());
+    let (_, args) = &commands(URL, &chrome, Os::Windows)[0];
+    assert_eq!(
+        cmd_line(args),
+        "/c start \"\" \"Google Chrome\" http://localhost:8080/page/1?a=1^&b=2"
+    );
+    let (_, args) = &commands(URL, &Browser::Default, Os::Windows)[0];
+    assert_eq!(
+        cmd_line(args),
+        "/c start \"\" http://localhost:8080/page/1?a=1^&b=2"
+    );
+}
+
+#[test]
 fn wsl_falls_back_through_the_openers() {
     assert_eq!(
         programs(&Browser::Default, Os::Wsl),

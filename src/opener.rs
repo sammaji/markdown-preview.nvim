@@ -117,8 +117,17 @@ const WSL_CMD: &str = "/mnt/c/Windows/System32/cmd.exe";
 pub fn open(url: &str, browser: &Browser) -> Result<(), String> {
     let mut tried = Vec::new();
     for (program, args) in commands(url, browser, Os::current()) {
-        let spawned = Command::new(&program)
-            .args(&args)
+        let mut command = Command::new(&program);
+        #[cfg(windows)]
+        if program.eq_ignore_ascii_case("cmd.exe") {
+            use std::os::windows::process::CommandExt;
+            command.raw_arg(cmd_line(&args));
+        } else {
+            command.args(&args);
+        }
+        #[cfg(not(windows))]
+        command.args(&args);
+        let spawned = command
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -137,6 +146,24 @@ pub fn open(url: &str, browser: &Browser) -> Result<(), String> {
         "[markdown-preview.nvim]: Can not open browser by using {} command, open {url} yourself",
         tried.join(", ")
     ))
+}
+
+/// The command line for `args` as cmd.exe reads it. Rust quotes arguments
+/// the way C programs parse them, escaping `"` as `\"`, but cmd.exe has no
+/// escapes: `start`'s empty title `""` would reach it as `"\"\""`, and
+/// `start` would try to open `\`.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn cmd_line(args: &[String]) -> String {
+    args.iter()
+        .map(|arg| {
+            if arg.contains([' ', '\t']) && !arg.contains('"') {
+                format!("\"{arg}\"")
+            } else {
+                arg.clone()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// WSL reports itself as Linux, but `xdg-open` often doesn't work there

@@ -121,7 +121,7 @@ You can leverage the existing `markdown-preview` plugin, replacing its package w
 ```nix
 { lib, pkgs, ... }:
 let
-  version = "0.2.0";
+  version = "0.3.0";
   binaryName = "markdown-preview-macos-arm64";
   # For v2.0.0. Otherwise use `nurl` to regenerate the rev and hash for the latest release.
   markdownPreviewSrc = pkgs.fetchFromGitHub {
